@@ -1,0 +1,14 @@
+{
+    "name": "Undefined.Uiservice.Editor.Tests",
+    "references": [
+        "Undefined.Uiservice.Editor",
+        "Undefined.Uiservice"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": []
+}
