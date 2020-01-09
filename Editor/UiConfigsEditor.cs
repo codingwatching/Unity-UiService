@@ -141,6 +141,8 @@ namespace GameLoversEditor.UiService
 			scriptableObject.Configs = configs;
 			_uiConfigsAddress = uiConfigsAddress.ToArray();
 
+			EditorUtility.SetDirty(scriptableObject);
+			AssetDatabase.SaveAssets();
 			Resources.UnloadUnusedAssets();
 		}
 
