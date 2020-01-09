@@ -328,10 +328,13 @@ namespace GameLovers.UiService
 				throw operation.OperationException;
 			}
 			
-			var uiPresenter = Object.Instantiate(operation.Result).GetComponent<UiPresenter>();
+			// ReSharper disable once AccessToStaticMemberViaDerivedType
+			var uiPresenter = GameObject.Instantiate(operation.Result).GetComponent<UiPresenter>();
 
 			AddUi(config.Layer, uiPresenter, config.UiType);
 			Addressables.Release(operation);
+			
+			uiPresenter.SetActive(false);
 
 			return uiPresenter;
 		}
