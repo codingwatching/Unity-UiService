@@ -334,7 +334,7 @@ namespace GameLovers.UiService
 			AddUi(config.Layer, uiPresenter, config.UiType);
 			Addressables.Release(operation);
 			
-			uiPresenter.SetActive(false);
+			uiPresenter.gameObject.SetActive(false);
 
 			return uiPresenter;
 		}
