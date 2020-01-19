@@ -12,6 +12,31 @@ using UnityEngine;
 namespace GameLoversEditor.UiService
 {
 	/// <summary>
+	/// Helps selecting the <see cref="UiConfigs"/> asset file in the Editor
+	/// </summary>
+	public static class UiConfigsSelect
+	{
+		
+		[MenuItem("Tools/Select UiConfigs.asset")]
+		private static void SelectUiConfigs()
+		{
+			var assets = AssetDatabase.FindAssets($"t:{nameof(UiConfigs)}");
+			var scriptableObject = assets.Length > 0 ? 
+				AssetDatabase.LoadAssetAtPath<UiConfigs>(AssetDatabase.GUIDToAssetPath(assets[0])) :
+				ScriptableObject.CreateInstance<UiConfigs>();
+
+			if (assets.Length == 0)
+			{
+				AssetDatabase.CreateAsset(scriptableObject, $"Assets/{nameof(UiConfigs)}.asset");
+				AssetDatabase.SaveAssets();
+				AssetDatabase.Refresh();
+			}
+
+			Selection.activeObject = scriptableObject;
+		}
+	}
+	
+	/// <summary>
 	/// Improves the inspector visualization for the <see cref="UiConfigs"/> scriptable object
 	/// </summary>
 	/// <remarks>

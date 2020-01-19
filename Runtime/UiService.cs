@@ -20,35 +20,56 @@ namespace GameLovers.UiService
 		/// <summary>
 		/// Adds the given UI <paramref name="config"/> to the service
 		/// </summary>
+		/// <exception cref="ArgumentException">
+		/// Thrown if the service already contains the given <paramref name="config"/>
+		/// </exception>
 		void AddUiConfig(UiConfig config);
 		
 		/// <summary>
-		/// Adds the given <paramref name="ui"/> to the service and to be included inside the given <paramref name="layer"/>
+		/// Adds the given <paramref name="uiPresenter"/> to the service and to be included inside the given <paramref name="layer"/>
 		/// </summary>
 		/// <exception cref="NullReferenceException">
-		/// Thrown if the given <paramref name="ui"/> is null
+		/// Thrown if the given <paramref name="uiPresenter"/> is null
 		/// </exception>
 		/// <exception cref="ArgumentException">
-		/// Thrown if the service already contains the given <paramref name="ui"/>
+		/// Thrown if the service already contains the given <paramref name="uiPresenter"/>
 		/// </exception>
-		void AddUi<T>(int layer, T ui) where T : UiPresenter;
+		void AddUi<T>(T uiPresenter, int layer) where T : UiPresenter;
 		
-		///<inheritdoc cref="AddUi{T}(int,T)"/>
-		/// <exception cref="InvalidCastException">
-		/// Thrown if the given <paramref name="type"/> is not a sub class of <seealso cref="UiPresenter"/>
+		/// <summary>
+		/// Removes and returns the UI of the given type <typeparamref name="T"/> without unloading it from the service
+		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given type <typeparamref name="T"/>
 		/// </exception>
-		void AddUi(int layer, UiPresenter ui, Type type);
+		T RemoveUi<T>() where T : UiPresenter;
+
+		/// <summary>
+		/// Removes and returns the UI of the given <paramref name="type"/> without unloading it from the service
+		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
+		/// </exception>
+		UiPresenter RemoveUi(Type type);
 		
 		/// <summary>
 		/// Loads an UI asynchronously with the given <typeparamref name="T"/>
 		/// This method can be controlled in an async method and returns the UI loaded
 		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain a <see cref="UiConfig"/> of the given type <typeparamref name="T"/>.
+		/// You need to call <seealso cref="AddUiConfig"/> or <seealso cref="AddUi{T}"/> or initialize the service first
+		/// </exception>
 		Task<T> LoadUiAsync<T>() where T : UiPresenter;
 		
 		/// <summary>
 		/// Loads an UI asynchronously with the given <paramref name="type"/>
 		/// This method can be controlled in an async method and returns the UI loaded
 		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain a <see cref="UiConfig"/> of the given <paramref name="type"/>
+		/// You need to call <seealso cref="AddUiConfig"/> or <seealso cref="AddUi{T}"/> or initialize the service first
+		/// </exception>
 		Task<UiPresenter> LoadUiAsync(Type type);
 		
 		/// <summary>
@@ -57,7 +78,7 @@ namespace GameLovers.UiService
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given type <typeparamref name="T"/>
 		/// </exception>
-		T UnloadUi<T>() where T : UiPresenter;
+		void UnloadUi<T>() where T : UiPresenter;
 		
 		/// <summary>
 		/// Unloads the UI of the given <paramref name="type"/>
@@ -65,17 +86,17 @@ namespace GameLovers.UiService
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
 		/// </exception>
-		UiPresenter UnloadUi(Type type);
+		void UnloadUi(Type type);
 		
 		/// <summary>
-		/// Checks if the <seealso cref="UiPresenter"/> of the given <typeparamref name="T"/> is loaded or not
+		/// Checks if the service contains <seealso cref="UiPresenter"/> of the given <typeparamref name="T"/>
 		/// </summary>
-		bool IsUiLoaded<T>() where T : UiPresenter;
+		bool HasUiPresenter<T>() where T : UiPresenter;
 		
 		/// <summary>
-		/// Checks if the <seealso cref="UiPresenter"/> of the given <paramref name="type"/> is loaded or not 
+		/// Checks if the service contains <seealso cref="UiPresenter"/> of the given <paramref name="type"/> is loaded or not 
 		/// </summary>
-		bool IsUiLoaded(Type type);
+		bool HasUiPresenter(Type type);
 		
 		/// <summary>
 		/// Requests the UI of given type <typeparamref name="T"/>
@@ -96,7 +117,6 @@ namespace GameLovers.UiService
 		/// <summary>
 		/// Requests the list all the visible UIs' <seealso cref="Type"/> on the screen
 		/// </summary>
-		/// <returns></returns>
 		List<Type> GetAllVisibleUi();
 
 		/// <summary>
@@ -144,6 +164,17 @@ namespace GameLovers.UiService
 		UiPresenter CloseUi(Type type);
 
 		/// <summary>
+		/// Closes and returns the same given <paramref name="uiPresenter"/>
+		/// </summary>
+		/// <exception cref="NullReferenceException">
+		/// Thrown if the given <paramref name="uiPresenter"/> is null
+		/// </exception>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain the given <paramref name="uiPresenter"/>
+		/// </exception>
+		T CloseUi<T>(T uiPresenter) where T : UiPresenter;
+
+		/// <summary>
 		/// Closes all the visible <seealso cref="UiPresenter"/>
 		/// </summary>
 		void CloseAllUi();
@@ -169,13 +200,35 @@ namespace GameLovers.UiService
 		/// Thrown if the service already contains the given <paramref name="uiSet"/>
 		/// </exception>
 		void AddUiSet(UiSetConfig uiSet);
+
+		/// <summary>
+		/// Removes and returns all the <see cref="UiPresenter"/> from given <paramref name="setId "/> that are still present in the service
+		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
+		/// You need to add it first by calling <seealso cref="AddUiSet"/>
+		/// </exception>
+		List<UiPresenter> RemoveUiPresentersFromSet(int setId);
 		
 		/// <summary>
-		/// Loads asynchronously all the <see cref="UiPresenter"/> from given <paramref name="uiSetId "/> and have not yet been loaded.
+		/// Loads asynchronously all the <see cref="UiPresenter"/> from given <paramref name="setId "/> and have not yet been loaded.
 		/// This method can be controlled in an async method and returns every UI when completes loaded.
 		/// This method can be controlled in a foreach loop and it will return the UIs in a first-load-first-return scheme 
 		/// </summary>
-		Task<Task<UiPresenter>>[] LoadUiSetAsync(int uiSetId);
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
+		/// You need to add it first by calling <seealso cref="AddUiSet"/>
+		/// </exception>
+		Task<Task<UiPresenter>>[] LoadUiSetAsync(int setId);
+
+		/// <summary>
+		/// Unloads all the <see cref="UiPresenter"/> from given <paramref name="setId "/> that are still present in the service
+		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
+		/// You need to add it first by calling <seealso cref="AddUiSet"/>
+		/// </exception>
+		void UnloadUiSet(int setId);
 
 		/// <summary>
 		/// Checks if the service contains or not the <seealso cref="UiSetConfig"/> of the given <paramref name="setId"/>
@@ -183,18 +236,20 @@ namespace GameLovers.UiService
 		bool HasUiSet(int setId);
 
 		/// <summary>
-		/// Checks if all the <seealso cref="UiPresenter"/> belonging in the given <paramref name="setId"/> is loaded or not
+		/// Checks if the service containers all the <seealso cref="UiPresenter"/> belonging in the given <paramref name="setId"/>
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> of the given <paramref name="setId"/>
+		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
+		/// You need to add it first by calling <seealso cref="AddUiSet"/>
 		/// </exception>
-		bool IsAllUiLoadedInSet(int setId);
+		bool HasAllUiPresentersInSet(int setId);
 		
 		/// <summary>
 		/// Requests the <seealso cref="UiSetConfig"/> of given type <paramref name="setId"/>
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> of the given <paramref name="setId"/>
+		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
+		/// You need to add it first by calling <seealso cref="AddUiSet"/>
 		/// </exception>
 		UiSetConfig GetUiSet(int setId);
 		
@@ -204,7 +259,8 @@ namespace GameLovers.UiService
 		/// that are not part of the given <paramref name="setId"/>
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> of with the given <paramref name="setId"/>
+		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
+		/// You need to add it first by calling <seealso cref="AddUiSet"/>
 		/// </exception>
 		void OpenUiSet(int setId, bool closeVisibleUi);
 		
@@ -212,7 +268,8 @@ namespace GameLovers.UiService
 		/// Closes all the <seealso cref="UiPresenter"/> that are part of the given <paramref name="setId"/>
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> of with the given <paramref name="setId"/>
+		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
+		/// You need to add it first by calling <seealso cref="AddUiSet"/>
 		/// </exception>
 		void CloseUiSet(int setId);
 	}
@@ -229,6 +286,9 @@ namespace GameLovers.UiService
 		/// <summary>
 		/// Initialize the service with the proper <paramref name="configs"/>
 		/// </summary>
+		/// <exception cref="ArgumentException">
+		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated
+		/// </exception>
 		public void Init(UiConfigs configs)
 		{
 			var uiConfigs = configs.Configs;
@@ -257,34 +317,25 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public void AddUi<T>(int layer, T ui) where T : UiPresenter
+		public void AddUi<T>(T uiPresenter, int layer) where T : UiPresenter
 		{
-			AddUi(layer, ui, typeof(T));
-		}
-
-		/// <inheritdoc />
-		public void AddUi(int layer, UiPresenter ui, Type type)
-		{
-			if (ui == null)
+			var type = uiPresenter.GetType().UnderlyingSystemType;
+			
+			if (uiPresenter == null)
 			{
 				throw new NullReferenceException($"The Ui {type} cannot be null");
 			}
 			
-			if (IsUiLoaded(type))
+			if (HasUiPresenter(type))
 			{
 				throw new ArgumentException($"The Ui {type} was already added");
-			}
-
-			if (!typeof(UiPresenter).IsAssignableFrom(type))
-			{
-				throw new InvalidCastException($"The Ui {type} is not of a {typeof(UiPresenter)} type");
 			}
 			
 			var reference = new UiReference
 			{
 				UiType = type,
 				Layer = layer,
-				Presenter = ui
+				Presenter = uiPresenter
 			};
 			
 			for(int i = _layers.Count; i <= layer; i++)
@@ -300,7 +351,28 @@ namespace GameLovers.UiService
 			}
 			
 			_uiViews.Add(reference.UiType, reference);
-			ui.transform.SetParent(_layers[layer].transform);
+			uiPresenter.transform.SetParent(_layers[layer].transform);
+			uiPresenter.Init(this);
+		}
+
+		/// <inheritdoc />
+		public T RemoveUi<T>() where T : UiPresenter
+		{
+			return RemoveUi(typeof(T)) as T;
+		}
+
+		/// <inheritdoc />
+		public UiPresenter RemoveUi(Type type)
+		{
+			if (!_uiViews.TryGetValue(type, out UiReference reference))
+			{
+				throw new KeyNotFoundException($"The Ui {type} is not present to be removed");
+			}
+			
+			_uiViews.Remove(type);
+			_visibleUiList.Remove(type);
+
+			return reference.Presenter;
 		}
 
 		/// <inheritdoc />
@@ -319,7 +391,7 @@ namespace GameLovers.UiService
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 			
-			var operation = Addressables.LoadAssetAsync<GameObject>(config.AddressableAddress);
+			var operation = Addressables.InstantiateAsync(config.AddressableAddress);
 
 			await operation.Task;
 
@@ -328,11 +400,10 @@ namespace GameLovers.UiService
 				throw operation.OperationException;
 			}
 			
-			// ReSharper disable once AccessToStaticMemberViaDerivedType
-			var uiPresenter = GameObject.Instantiate(operation.Result).GetComponent<UiPresenter>();
+			var uiPresenter = operation.Result.GetComponent<UiPresenter>();
 
-			AddUi(config.Layer, uiPresenter, config.UiType);
-			Addressables.Release(operation);
+			AddUi(uiPresenter, config.Layer);
+			Addressables.ReleaseInstance(uiPresenter.gameObject);
 			
 			uiPresenter.gameObject.SetActive(false);
 
@@ -340,34 +411,25 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public T UnloadUi<T>() where T : UiPresenter
+		public void UnloadUi<T>() where T : UiPresenter
 		{
-			return UnloadUi(typeof(T)) as T;
+			UnloadUi(typeof(T));
 		}
 
 		/// <inheritdoc />
-		public UiPresenter UnloadUi(Type type)
+		public void UnloadUi(Type type)
 		{
-			if (!_uiViews.TryGetValue(type, out UiReference reference))
-			{
-				throw new KeyNotFoundException($"The Ui {type} is not present to be removed");
-			}
-			
-			UiPresenter presenter = reference.Presenter;
-
-			_uiViews.Remove(type);
-
-			return presenter;
+			Object.Destroy(RemoveUi(type).gameObject);
 		}
 
 		/// <inheritdoc />
-		public bool IsUiLoaded<T>() where T : UiPresenter
+		public bool HasUiPresenter<T>() where T : UiPresenter
 		{
-			return IsUiLoaded(typeof(T));
+			return HasUiPresenter(typeof(T));
 		}
 
 		/// <inheritdoc />
-		public bool IsUiLoaded(Type type)
+		public bool HasUiPresenter(Type type)
 		{
 			return _uiViews.ContainsKey(type);
 		}
@@ -403,12 +465,12 @@ namespace GameLovers.UiService
 			
 			if (!_visibleUiList.Contains(type))
 			{
-				ui.Open();
+				ui.InternalOpen();
 				_visibleUiList.Add(type);
 			}
 			else
 			{
-				ui.Refresh();
+				Debug.LogWarning($"Is trying to open the {type.Name} ui but is already open");
 			}
 			
 			return ui;
@@ -442,10 +504,27 @@ namespace GameLovers.UiService
 			if (_visibleUiList.Contains(type))
 			{
 				_visibleUiList.Remove(type);
-				ui.Close();
+				ui.InternalClose();
+			}
+			else
+			{
+				Debug.LogWarning($"Is trying to close the {type.Name} ui but is not open");
 			}
 
 			return ui;
+		}
+
+		/// <inheritdoc />
+		public T CloseUi<T>(T uiPresenter) where T : UiPresenter
+		{
+			if (uiPresenter == null)
+			{
+				throw new NullReferenceException($"The Ui {uiPresenter.GetType().UnderlyingSystemType} cannot be null");
+			}
+			
+			CloseUi(uiPresenter.GetType().UnderlyingSystemType);
+
+			return uiPresenter;
 		}
 
 		/// <inheritdoc />
@@ -453,7 +532,7 @@ namespace GameLovers.UiService
 		{
 			for (int i = 0; i < _visibleUiList.Count; i++)
 			{
-				GetUi(_visibleUiList[i]).Close();
+				GetUi(_visibleUiList[i]).InternalClose();
 				_visibleUiList.Remove(_visibleUiList[i]);
 			}
 			
@@ -484,32 +563,51 @@ namespace GameLovers.UiService
 				var reference = GetReference(_visibleUiList[i]);
 				if (reference.Layer == layer)
 				{
-					reference.Presenter.Close();
+					reference.Presenter.InternalClose();
 					_visibleUiList.Remove(reference.UiType);
 				}
 			}
 		}
 
 		/// <inheritdoc />
-		public void AddUiSet(UiSetConfig set)
+		public void AddUiSet(UiSetConfig uiSet)
 		{
-			if (_uiSets.ContainsKey(set.SetId))
+			if (_uiSets.ContainsKey(uiSet.SetId))
 			{
-				throw new ArgumentException($"The Ui Configuration with the id {set.SetId.ToString()} was already added");
+				throw new ArgumentException($"The Ui Configuration with the id {uiSet.SetId.ToString()} was already added");
 			}
 			
-			_uiSets.Add(set.SetId, set);
+			_uiSets.Add(uiSet.SetId, uiSet);
 		}
 
 		/// <inheritdoc />
-		public Task<Task<UiPresenter>>[] LoadUiSetAsync(int uiSetId)
+		public List<UiPresenter> RemoveUiPresentersFromSet(int setId)
 		{
-			var set = GetUiSet(uiSetId);
+			var set = GetUiSet(setId);
+			var list = new List<UiPresenter>();
+
+			for (int i = 0; i < set.UiConfigsType.Count; i++)
+			{
+				if (!HasUiPresenter(set.UiConfigsType[i]))
+				{
+					continue;
+				}
+				
+				list.Add(RemoveUi(set.UiConfigsType[i]));
+			}
+
+			return list;
+		}
+
+		/// <inheritdoc />
+		public Task<Task<UiPresenter>>[] LoadUiSetAsync(int setId)
+		{
+			var set = GetUiSet(setId);
 			var uiTasks = new List<Task<UiPresenter>>();
 
 			for (int i = 0; i < set.UiConfigsType.Count; i++)
 			{
-				if (IsUiLoaded(set.UiConfigsType[i]))
+				if (HasUiPresenter(set.UiConfigsType[i]))
 				{
 					continue;
 				}
@@ -518,7 +616,20 @@ namespace GameLovers.UiService
 			}
 
 			return LoaderUtil.Interleaved(uiTasks);
+		}
 
+		/// <inheritdoc />
+		public void UnloadUiSet(int setId)
+		{
+			var set = GetUiSet(setId);
+
+			for (var i = 0; i < set.UiConfigsType.Count; i++)
+			{
+				if (HasUiPresenter(set.UiConfigsType[i]))
+				{
+					UnloadUi(set.UiConfigsType[i]);
+				}
+			}
 		}
 
 		/// <inheritdoc />
@@ -528,13 +639,13 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public bool IsAllUiLoadedInSet(int setId)
+		public bool HasAllUiPresentersInSet(int setId)
 		{
 			var set = GetUiSet(setId);
 
 			for (var i = 0; i < set.UiConfigsType.Count; i++)
 			{
-				if (!IsUiLoaded(set.UiConfigsType[i]))
+				if (!HasUiPresenter(set.UiConfigsType[i]))
 				{
 					return false;
 				}

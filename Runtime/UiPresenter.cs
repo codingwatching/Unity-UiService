@@ -10,32 +10,51 @@ namespace GameLovers.UiService
 	/// </summary>
 	public abstract class UiPresenter : MonoBehaviour
 	{
+		private IUiService _uiService;
+		
 		/// <summary>
 		/// Sets the UI <paramref name="data"/>
 		/// </summary>
 		public virtual void SetData<T>(T data) where T : struct {}
+
+		/// <summary>
+		/// Refreshes this opened UI
+		/// </summary>
+		public virtual void Refresh() {}
 		
-		internal void Refresh()
+		/// <summary>
+		/// Allows the ui presenter implementation to have extra behaviour when it is opened
+		/// </summary>
+		protected virtual void OnOpened() {}
+
+		/// <summary>
+		/// Allows the ui presenter implementation to have extra behaviour when it is closed
+		/// </summary>
+		protected virtual void OnClosed() {}
+
+		/// <summary>
+		/// Allows the ui presenter implementation to directly close the ui presenter without needing to call the service directly
+		/// </summary>
+		protected void Close()
 		{
-			OnRefresh();
+			_uiService.CloseUi(this);
 		}
 
-		internal void Open()
+		internal void Init(IUiService uiService)
+		{
+			_uiService = uiService;
+		}
+
+		internal void InternalOpen()
 		{
 			gameObject.SetActive(true);
 			OnOpened();
 		}
 
-		internal void Close()
+		internal void InternalClose()
 		{
 			gameObject.SetActive(false);
 			OnClosed();
 		}
-
-		protected virtual void OnRefresh() {}
-		
-		protected virtual void OnOpened() {}
-
-		protected virtual void OnClosed() {}
 	}
 }
