@@ -18,6 +18,11 @@ namespace GameLovers.UiService
 	public interface IUiService
 	{
 		/// <summary>
+		/// Requests the <see cref="Canvas"/> of the given <paramref name="layer"/>
+		/// </summary>
+		Canvas GetLayer(int layer);
+		
+		/// <summary>
 		/// Adds the given UI <paramref name="config"/> to the service
 		/// </summary>
 		/// <exception cref="ArgumentException">
@@ -26,7 +31,8 @@ namespace GameLovers.UiService
 		void AddUiConfig(UiConfig config);
 		
 		/// <summary>
-		/// Adds the given <paramref name="uiPresenter"/> to the service and to be included inside the given <paramref name="layer"/>
+		/// Adds the given <paramref name="uiPresenter"/> to the service and to be included inside the given <paramref name="layer"/>.
+		/// If the given <paramref name="openAfter"/> is true, will open the <see cref="UiPresenter"/> after adding it to the service
 		/// </summary>
 		/// <exception cref="NullReferenceException">
 		/// Thrown if the given <paramref name="uiPresenter"/> is null
@@ -34,7 +40,7 @@ namespace GameLovers.UiService
 		/// <exception cref="ArgumentException">
 		/// Thrown if the service already contains the given <paramref name="uiPresenter"/>
 		/// </exception>
-		void AddUi<T>(T uiPresenter, int layer) where T : UiPresenter;
+		void AddUi<T>(T uiPresenter, int layer, bool openAfter = false) where T : UiPresenter;
 		
 		/// <summary>
 		/// Removes and returns the UI of the given type <typeparamref name="T"/> without unloading it from the service
@@ -51,26 +57,36 @@ namespace GameLovers.UiService
 		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
 		/// </exception>
 		UiPresenter RemoveUi(Type type);
+
+		/// <summary>
+		/// Removes and returns the given <paramref name="uiPresenter"/> without unloading it from the service
+		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/>
+		/// </exception>
+		T RemoveUi<T>(T uiPresenter) where T : UiPresenter;
 		
 		/// <summary>
-		/// Loads an UI asynchronously with the given <typeparamref name="T"/>
-		/// This method can be controlled in an async method and returns the UI loaded
+		/// Loads an UI asynchronously with the given <typeparamref name="T"/>.
+		/// This method can be controlled in an async method and returns the UI loaded.
+		/// If the given <paramref name="openAfter"/> is true, will open the <see cref="UiPresenter"/> after loading
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain a <see cref="UiConfig"/> of the given type <typeparamref name="T"/>.
 		/// You need to call <seealso cref="AddUiConfig"/> or <seealso cref="AddUi{T}"/> or initialize the service first
 		/// </exception>
-		Task<T> LoadUiAsync<T>() where T : UiPresenter;
+		Task<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter;
 		
 		/// <summary>
-		/// Loads an UI asynchronously with the given <paramref name="type"/>
-		/// This method can be controlled in an async method and returns the UI loaded
+		/// Loads an UI asynchronously with the given <paramref name="type"/>.
+		/// This method can be controlled in an async method and returns the UI loaded.
+		/// If the given <paramref name="openAfter"/> is true, will open the <see cref="UiPresenter"/> after loading
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain a <see cref="UiConfig"/> of the given <paramref name="type"/>
 		/// You need to call <seealso cref="AddUiConfig"/> or <seealso cref="AddUi{T}"/> or initialize the service first
 		/// </exception>
-		Task<UiPresenter> LoadUiAsync(Type type);
+		Task<UiPresenter> LoadUiAsync(Type type, bool openAfter = false);
 		
 		/// <summary>
 		/// Unloads the UI of the given type <typeparamref name="T"/>
@@ -87,6 +103,14 @@ namespace GameLovers.UiService
 		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
 		/// </exception>
 		void UnloadUi(Type type);
+
+		/// <summary>
+		/// Unloads the UI of the given <paramref name="uiPresenter"/>
+		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
+		/// </exception>
+		void UnloadUi<T>(T uiPresenter) where T : UiPresenter;
 		
 		/// <summary>
 		/// Checks if the service contains <seealso cref="UiPresenter"/> of the given <typeparamref name="T"/>
@@ -166,9 +190,6 @@ namespace GameLovers.UiService
 		/// <summary>
 		/// Closes and returns the same given <paramref name="uiPresenter"/>
 		/// </summary>
-		/// <exception cref="NullReferenceException">
-		/// Thrown if the given <paramref name="uiPresenter"/> is null
-		/// </exception>
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain the given <paramref name="uiPresenter"/>
 		/// </exception>
@@ -306,6 +327,12 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
+		public Canvas GetLayer(int layer)
+		{
+			return _layers[layer];
+		}
+
+		/// <inheritdoc />
 		public void AddUiConfig(UiConfig config)
 		{
 			if (_uiConfigs.ContainsKey(config.UiType))
@@ -317,7 +344,7 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public void AddUi<T>(T uiPresenter, int layer) where T : UiPresenter
+		public void AddUi<T>(T uiPresenter, int layer, bool openAfter = false) where T : UiPresenter
 		{
 			var type = uiPresenter.GetType().UnderlyingSystemType;
 			
@@ -353,6 +380,11 @@ namespace GameLovers.UiService
 			_uiViews.Add(reference.UiType, reference);
 			uiPresenter.transform.SetParent(_layers[layer].transform);
 			uiPresenter.Init(this);
+
+			if (openAfter)
+			{
+				OpenUi<T>();
+			}
 		}
 
 		/// <inheritdoc />
@@ -376,15 +408,23 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public async Task<T> LoadUiAsync<T>() where T : UiPresenter
+		public T RemoveUi<T>(T uiPresenter) where T : UiPresenter
 		{
-			UiPresenter uiPresenter = await LoadUiAsync(typeof(T));
+			RemoveUi(uiPresenter.GetType().UnderlyingSystemType);
+			
+			return uiPresenter;
+		}
+
+		/// <inheritdoc />
+		public async Task<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter
+		{
+			UiPresenter uiPresenter = await LoadUiAsync(typeof(T), openAfter);
 			
 			return uiPresenter as T;
 		}
 
 		/// <inheritdoc />
-		public async Task<UiPresenter> LoadUiAsync(Type type)
+		public async Task<UiPresenter> LoadUiAsync(Type type, bool openAfter = false)
 		{
 			if (!_uiConfigs.TryGetValue(type, out UiConfig config))
 			{
@@ -401,11 +441,10 @@ namespace GameLovers.UiService
 			}
 			
 			var uiPresenter = operation.Result.GetComponent<UiPresenter>();
-
-			AddUi(uiPresenter, config.Layer);
-			Addressables.ReleaseInstance(uiPresenter.gameObject);
 			
 			uiPresenter.gameObject.SetActive(false);
+
+			AddUi(uiPresenter, config.Layer, openAfter);
 
 			return uiPresenter;
 		}
@@ -419,7 +458,16 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void UnloadUi(Type type)
 		{
-			Object.Destroy(RemoveUi(type).gameObject);
+			var gameObject = RemoveUi(type).gameObject;
+			
+			Addressables.ReleaseInstance(gameObject);
+			Object.Destroy(gameObject);
+		}
+
+		/// <inheritdoc />
+		public void UnloadUi<T>(T uiPresenter) where T : UiPresenter
+		{
+			UnloadUi(uiPresenter.GetType().UnderlyingSystemType);
 		}
 
 		/// <inheritdoc />
@@ -517,11 +565,6 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public T CloseUi<T>(T uiPresenter) where T : UiPresenter
 		{
-			if (uiPresenter == null)
-			{
-				throw new NullReferenceException($"The Ui {uiPresenter.GetType().UnderlyingSystemType} cannot be null");
-			}
-			
 			CloseUi(uiPresenter.GetType().UnderlyingSystemType);
 
 			return uiPresenter;

@@ -2,7 +2,16 @@
 All notable changes to this package will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
-and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
+and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
+
+## [0.2.1] - 2020-02-09
+
+- Added the possibility to open the ui after adding or loading it to the *UiService*
+- Added the possibility to get the canvas reference object based on the given layer
+- Added the possibility to remove and unload the *UiPresenter* by only passing it's reference
+
+**Fixed**:
+- Fixed bug that prevented the *UiService* to properly unload an *UiPresenter*
 
 ## [0.2.0] - 2020-01-19
 
