@@ -11,16 +11,16 @@ namespace GameLovers.UiService
 	public abstract class UiPresenter : MonoBehaviour
 	{
 		private IUiService _uiService;
-		
-		/// <summary>
-		/// Sets the UI <paramref name="data"/>
-		/// </summary>
-		public virtual void SetData<T>(T data) where T : struct {}
 
 		/// <summary>
 		/// Refreshes this opened UI
 		/// </summary>
 		public virtual void Refresh() {}
+		
+		/// <summary>
+		/// Allows the ui presenter implementation to have extra behaviour when it is initialized
+		/// </summary>
+		protected virtual void OnInitialized() {}
 		
 		/// <summary>
 		/// Allows the ui presenter implementation to have extra behaviour when it is opened
@@ -43,6 +43,7 @@ namespace GameLovers.UiService
 		internal void Init(IUiService uiService)
 		{
 			_uiService = uiService;
+			OnInitialized();
 		}
 
 		internal void InternalOpen()
@@ -55,6 +56,35 @@ namespace GameLovers.UiService
 		{
 			gameObject.SetActive(false);
 			OnClosed();
+		}
+	}
+	
+	/// <summary>
+	/// Tags the <see cref="UiPresenter"/> as a <see cref="UiPresenterData{T}"/> to allow definning a specific state when
+	/// opening it via the <see cref="UiService"/>
+	/// </summary>
+	public interface IUiPresenterData {}
+
+	/// <inheritdoc cref="UiPresenter"/>
+	/// <remarks>
+	/// Extends the <see cref="UiPresenter"/> behaviour with defined data of type <typeparamref name="T"/>
+	/// </remarks>
+	public abstract class UiPresenterData<T> : UiPresenter, IUiPresenterData
+		where T : struct
+	{
+		/// <summary>
+		/// The Ui data defined when opened via the <see cref="UiService"/>
+		/// </summary>
+		public T Data { get; protected set; }
+		
+		/// <summary>
+		/// Allows the ui presenter implementation to have extra behaviour when the data defined for the presenter is set
+		/// </summary>
+		protected virtual void OnSetData(T data) {}
+
+		internal void InternalSetData(T data)
+		{
+			Data = data;
 		}
 	}
 }

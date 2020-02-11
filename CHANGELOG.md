@@ -4,6 +4,13 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [0.3.0] - 2020-02-11
+
+- Added new *UiPresenterData* class for the case where the *UiPresenter* needs to be initialized with a default data value
+- Added new *OnInitialize* method that is invoked after the *UiPresenter* is initialized
+
+## [0.2.0] - 2020-01-19
+
 ## [0.2.1] - 2020-02-09
 
 - Added the possibility to open the ui after adding or loading it to the *UiService*
