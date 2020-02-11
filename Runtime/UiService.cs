@@ -34,9 +34,6 @@ namespace GameLovers.UiService
 		/// Adds the given <paramref name="uiPresenter"/> to the service and to be included inside the given <paramref name="layer"/>.
 		/// If the given <paramref name="openAfter"/> is true, will open the <see cref="UiPresenter"/> after adding it to the service
 		/// </summary>
-		/// <exception cref="NullReferenceException">
-		/// Thrown if the given <paramref name="uiPresenter"/> is null
-		/// </exception>
 		/// <exception cref="ArgumentException">
 		/// Thrown if the service already contains the given <paramref name="uiPresenter"/>
 		/// </exception>
@@ -163,9 +160,14 @@ namespace GameLovers.UiService
 		/// <remarks>
 		/// It sets the given <paramref name="initialData"/> data BEFORE opening the UI
 		/// </remarks>
-		T OpenUi<T, TData>(TData initialData) where T : UiPresenter where TData : struct;
+		T OpenUi<T, TData>(TData initialData) 
+			where T : class, IUiPresenterData 
+			where TData : struct;
 
 		///<inheritdoc cref="OpenUi(Type)"/>
+		/// <exception cref="ArgumentException">
+		/// Thrown if the the given <paramref name="type"/> is not of inhereting from <see cref="UiPresenterData{T}"/> class
+		/// </exception>
 		/// <remarks>
 		/// It sets the given <paramref name="initialData"/> data BEFORE opening the UI
 		/// </remarks>
@@ -348,11 +350,6 @@ namespace GameLovers.UiService
 		{
 			var type = uiPresenter.GetType().UnderlyingSystemType;
 			
-			if (uiPresenter == null)
-			{
-				throw new NullReferenceException($"The Ui {type} cannot be null");
-			}
-			
 			if (HasUiPresenter(type))
 			{
 				throw new ArgumentException($"The Ui {type} was already added");
@@ -418,7 +415,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public async Task<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter
 		{
-			UiPresenter uiPresenter = await LoadUiAsync(typeof(T), openAfter);
+			var uiPresenter = await LoadUiAsync(typeof(T), openAfter);
 			
 			return uiPresenter as T;
 		}
@@ -509,7 +506,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public UiPresenter OpenUi(Type type)
 		{
-			UiPresenter ui = GetUi(type);
+			var ui = GetUi(type);
 			
 			if (!_visibleUiList.Contains(type))
 			{
@@ -525,7 +522,9 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public T OpenUi<T, TData>(TData initialData) where T : UiPresenter where TData : struct
+		public T OpenUi<T, TData>(TData initialData) 
+			where T : class, IUiPresenterData 
+			where TData : struct
 		{
 			return OpenUi(typeof(T), initialData) as T;
 		}
@@ -533,7 +532,14 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public UiPresenter OpenUi<TData>(Type type, TData initialData) where TData : struct
 		{
-			GetUi(type).SetData(initialData);
+			var uiPresenterData = GetUi(type) as UiPresenterData<TData>;
+
+			if (uiPresenterData == null)
+			{
+				throw new ArgumentException($"The UiPresenter {type} is not of a {nameof(UiPresenterData<TData>)}");
+			}
+			
+			uiPresenterData.InternalSetData(initialData);
 
 			return OpenUi(type);
 		}
@@ -547,7 +553,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public UiPresenter CloseUi(Type type)
 		{
-			UiPresenter ui = GetUi(type);
+			var ui = GetUi(type);
 			
 			if (_visibleUiList.Contains(type))
 			{
