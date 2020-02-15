@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using GameLovers.LoaderExtension;
+using GameLovers.AssetLoader;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using Object = UnityEngine.Object;
 
 // ReSharper disable CheckNamespace
@@ -423,23 +421,15 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public async Task<UiPresenter> LoadUiAsync(Type type, bool openAfter = false)
 		{
-			if (!_uiConfigs.TryGetValue(type, out UiConfig config))
+			if (!_uiConfigs.TryGetValue(type, out var config))
 			{
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 			
-			var operation = Addressables.InstantiateAsync(config.AddressableAddress);
-
-			await operation.Task;
-
-			if (operation.Status != AsyncOperationStatus.Succeeded)
-			{
-				throw operation.OperationException;
-			}
+			var gameObject = await AssetLoaderService.InstantiatePrefabAsync(config.AddressableAddress);
+			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 			
-			var uiPresenter = operation.Result.GetComponent<UiPresenter>();
-			
-			uiPresenter.gameObject.SetActive(false);
+			gameObject.SetActive(false);
 
 			AddUi(uiPresenter, config.Layer, openAfter);
 
@@ -457,8 +447,7 @@ namespace GameLovers.UiService
 		{
 			var gameObject = RemoveUi(type).gameObject;
 			
-			Addressables.ReleaseInstance(gameObject);
-			Object.Destroy(gameObject);
+			AssetLoaderService.UnloadAsset(gameObject);
 		}
 
 		/// <inheritdoc />
@@ -664,7 +653,7 @@ namespace GameLovers.UiService
 				uiTasks.Add(LoadUiAsync(set.UiConfigsType[i]));
 			}
 
-			return LoaderUtil.Interleaved(uiTasks);
+			return AssetLoaderService.Interleaved(uiTasks);
 		}
 
 		/// <inheritdoc />
