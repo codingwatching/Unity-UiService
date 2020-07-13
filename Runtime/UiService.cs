@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using GameLovers.AssetLoader;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 // ReSharper disable CheckNamespace
 
@@ -12,11 +11,17 @@ namespace GameLovers.UiService
 	/// <inheritdoc />
 	public class UiService : IUiService
 	{
+		private readonly IAssetLoader _assetLoader;
 		private readonly IDictionary<Type, UiReference> _uiViews = new Dictionary<Type, UiReference>();
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
 		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
 		private readonly IList<Type> _visibleUiList = new List<Type>();
 		private readonly IList<Canvas> _layers = new List<Canvas>();
+
+		public UiService(IAssetLoader assetLoader)
+		{
+			_assetLoader = assetLoader;
+		}
 
 		/// <summary>
 		/// Initialize the service with the proper <paramref name="configs"/>
@@ -140,7 +145,7 @@ namespace GameLovers.UiService
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 			
-			var gameObject = await AssetLoaderService.InstantiatePrefabAsync(config.AddressableAddress);
+			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress);
 			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 			
 			gameObject.SetActive(false);
@@ -161,7 +166,7 @@ namespace GameLovers.UiService
 		{
 			var gameObject = RemoveUi(type).gameObject;
 			
-			AssetLoaderService.UnloadAsset(gameObject);
+			_assetLoader.UnloadAsset(gameObject);
 		}
 
 		/// <inheritdoc />
@@ -367,7 +372,7 @@ namespace GameLovers.UiService
 				uiTasks.Add(LoadUiAsync(set.UiConfigsType[i]));
 			}
 
-			return AssetLoaderService.Interleaved(uiTasks);
+			return AssetLoaderUtils.Interleaved(uiTasks);
 		}
 
 		/// <inheritdoc />
