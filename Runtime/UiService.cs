@@ -145,7 +145,7 @@ namespace GameLovers.UiService
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 			
-			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress);
+			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, null, true);
 			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 			
 			gameObject.SetActive(false);
