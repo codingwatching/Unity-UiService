@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using GameLovers.AssetLoader;
 using UnityEngine;
 
 // ReSharper disable CheckNamespace
@@ -11,14 +12,14 @@ namespace GameLovers.UiService
 	/// <inheritdoc />
 	public class UiService : IUiService
 	{
-		private readonly IAssetLoader _assetLoader;
+		private readonly IUiAssetLoader _assetLoader;
 		private readonly IDictionary<Type, UiReference> _uiViews = new Dictionary<Type, UiReference>();
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
 		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
 		private readonly IList<Type> _visibleUiList = new List<Type>();
 		private readonly IList<Canvas> _layers = new List<Canvas>();
 
-		public UiService(IAssetLoader assetLoader)
+		public UiService(IUiAssetLoader assetLoader)
 		{
 			_assetLoader = assetLoader;
 		}
@@ -372,7 +373,7 @@ namespace GameLovers.UiService
 				uiTasks.Add(LoadUiAsync(set.UiConfigsType[i]));
 			}
 
-			return AssetLoaderUtils.Interleaved(uiTasks);
+			return Interleaved(uiTasks);
 		}
 
 		/// <inheritdoc />
@@ -471,6 +472,33 @@ namespace GameLovers.UiService
 			}
 
 			return uiReference;
+		}
+		
+		private Task<Task<T>>[] Interleaved<T>(IEnumerable<Task<T>> tasks)
+		{
+			var inputTasks = tasks.ToList();
+			var buckets = new TaskCompletionSource<Task<T>>[inputTasks.Count];
+			var results = new Task<Task<T>>[buckets.Length];
+			var nextTaskIndex = -1;
+			
+			for (var i = 0; i < buckets.Length; i++) 
+			{
+				buckets[i] = new TaskCompletionSource<Task<T>>();
+				results[i] = buckets[i].Task;
+			}
+			
+			foreach (var inputTask in inputTasks)
+			{
+				inputTask.ContinueWith(Continuation, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+			}
+
+			return results;
+
+			// Local function
+			void Continuation(Task<T> completed)
+			{
+				buckets[Interlocked.Increment(ref nextTaskIndex)].TrySetResult(completed);
+			}
 		}
 		
 		private struct UiReference
