@@ -25,8 +25,12 @@ namespace GameLovers.UiService
 		}
 
 		/// <summary>
-		/// Initialize the service with the proper <paramref name="configs"/>
+		/// Initialize the service with <paramref name="configs"/> that define the game's UI
 		/// </summary>
+		/// <remarks>
+		/// To help configure the game's UI you need to create a UiConfigs Scriptable object by:
+		/// - Right Click on the Project View > Create > ScriptableObjects > Configs > UiConfigs
+		/// </remarks>
 		/// <exception cref="ArgumentException">
 		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated
 		/// </exception>
