@@ -1,9 +1,8 @@
 {
-    "name": "UiService",
+    "name": "GameLovers.UiService",
     "references": [
         "GUID:84651a3751eca9349aac36a66bba901b",
-        "GUID:9e24947de15b9834991c9d8411ea37cf",
-        "GUID:ebfc05ee5a737f94d8b07099524dab77"
+        "GUID:9e24947de15b9834991c9d8411ea37cf"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

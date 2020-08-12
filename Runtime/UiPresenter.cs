@@ -60,8 +60,8 @@ namespace GameLovers.UiService
 	}
 	
 	/// <summary>
-	/// Tags the <see cref="UiPresenter"/> as a <see cref="UiPresenterData{T}"/> to allow definning a specific state when
-	/// opening it via the <see cref="UiService"/>
+	/// Tags the <see cref="UiPresenter"/> as a <see cref="UiPresenterData{T}"/> to allow defining a specific state when
+	/// opening the UI via the <see cref="UiService"/>
 	/// </summary>
 	public interface IUiPresenterData {}
 
@@ -69,8 +69,7 @@ namespace GameLovers.UiService
 	/// <remarks>
 	/// Extends the <see cref="UiPresenter"/> behaviour with defined data of type <typeparamref name="T"/>
 	/// </remarks>
-	public abstract class UiPresenterData<T> : UiPresenter, IUiPresenterData
-		where T : struct
+	public abstract class UiPresenterData<T> : UiPresenter, IUiPresenterData where T : struct
 	{
 		/// <summary>
 		/// The Ui data defined when opened via the <see cref="UiService"/>

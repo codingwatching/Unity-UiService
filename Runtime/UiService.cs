@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using GameLovers.AssetLoader;
 using UnityEngine;
 
 // ReSharper disable CheckNamespace
@@ -11,21 +12,25 @@ namespace GameLovers.UiService
 	/// <inheritdoc />
 	public class UiService : IUiService
 	{
-		private readonly IAssetLoader _assetLoader;
+		private readonly IUiAssetLoader _assetLoader;
 		private readonly IDictionary<Type, UiReference> _uiViews = new Dictionary<Type, UiReference>();
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
 		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
 		private readonly IList<Type> _visibleUiList = new List<Type>();
 		private readonly IList<Canvas> _layers = new List<Canvas>();
 
-		public UiService(IAssetLoader assetLoader)
+		public UiService(IUiAssetLoader assetLoader)
 		{
 			_assetLoader = assetLoader;
 		}
 
 		/// <summary>
-		/// Initialize the service with the proper <paramref name="configs"/>
+		/// Initialize the service with <paramref name="configs"/> that define the game's UI
 		/// </summary>
+		/// <remarks>
+		/// To help configure the game's UI you need to create a UiConfigs Scriptable object by:
+		/// - Right Click on the Project View > Create > ScriptableObjects > Configs > UiConfigs
+		/// </remarks>
 		/// <exception cref="ArgumentException">
 		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated
 		/// </exception>
@@ -145,7 +150,7 @@ namespace GameLovers.UiService
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 			
-			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress);
+			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, null, true);
 			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 			
 			gameObject.SetActive(false);
@@ -372,7 +377,7 @@ namespace GameLovers.UiService
 				uiTasks.Add(LoadUiAsync(set.UiConfigsType[i]));
 			}
 
-			return AssetLoaderUtils.Interleaved(uiTasks);
+			return Interleaved(uiTasks);
 		}
 
 		/// <inheritdoc />
@@ -471,6 +476,33 @@ namespace GameLovers.UiService
 			}
 
 			return uiReference;
+		}
+		
+		private Task<Task<T>>[] Interleaved<T>(IEnumerable<Task<T>> tasks)
+		{
+			var inputTasks = tasks.ToList();
+			var buckets = new TaskCompletionSource<Task<T>>[inputTasks.Count];
+			var results = new Task<Task<T>>[buckets.Length];
+			var nextTaskIndex = -1;
+			
+			for (var i = 0; i < buckets.Length; i++) 
+			{
+				buckets[i] = new TaskCompletionSource<Task<T>>();
+				results[i] = buckets[i].Task;
+			}
+			
+			foreach (var inputTask in inputTasks)
+			{
+				inputTask.ContinueWith(Continuation, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+			}
+
+			return results;
+
+			// Local function
+			void Continuation(Task<T> completed)
+			{
+				buckets[Interlocked.Increment(ref nextTaskIndex)].TrySetResult(completed);
+			}
 		}
 		
 		private struct UiReference
