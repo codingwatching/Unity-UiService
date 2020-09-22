@@ -8,6 +8,7 @@ namespace GameLovers.UiService
 	/// The root base of the UI Presenter of the <seealso cref="IUiService"/>
 	/// Implement this abstract class in order to execute the proper UI life cycle
 	/// </summary>
+	[RequireComponent(typeof(Canvas))]
 	public abstract class UiPresenter : MonoBehaviour
 	{
 		private IUiService _uiService;

@@ -23,10 +23,9 @@ namespace GameLovers.UiService
 		Task<GameObject> InstantiatePrefabAsync(string path, Transform parent, bool instantiateInWorldSpace);
 
 		/// <summary>
-		/// Unloads the given <paramref name="asset"/> from the game memory.
-		/// If <typeparamref name="T"/> is of <seealso cref="GameObject"/> type, then will also destroy it
+		/// Unloads the given <paramref name="asset"/> from the game memory
 		/// </summary>
-		void UnloadAsset<T>(T asset);
+		void UnloadAsset(GameObject asset);
 	}
 
 	/// <inheritdoc />
@@ -48,15 +47,9 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public void UnloadAsset<T>(T asset)
+		public void UnloadAsset(GameObject asset)
 		{
 			Addressables.Release(asset);
-
-			var gameObject = asset as GameObject;
-			if (gameObject != null)
-			{
-				UnityEngine.Object.Destroy(gameObject);
-			}
 		}
 	}
 }

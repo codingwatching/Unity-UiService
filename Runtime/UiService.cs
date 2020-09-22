@@ -102,7 +102,7 @@ namespace GameLovers.UiService
 
 			if (openAfter)
 			{
-				OpenUi<T>();
+				OpenUi(type);
 			}
 		}
 
