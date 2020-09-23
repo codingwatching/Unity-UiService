@@ -14,6 +14,11 @@ namespace GameLovers.UiService
 		private IUiService _uiService;
 
 		/// <summary>
+		/// Requests the open status of the <see cref="UiPresenter"/>
+		/// </summary>
+		public bool IsOpen => gameObject.activeSelf;
+
+		/// <summary>
 		/// Refreshes this opened UI
 		/// </summary>
 		public virtual void Refresh() {}

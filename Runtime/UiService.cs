@@ -10,7 +10,7 @@ using UnityEngine;
 namespace GameLovers.UiService
 {
 	/// <inheritdoc />
-	public class UiService : IUiService
+	public class UiService : IUiServiceInit
 	{
 		private readonly IUiAssetLoader _assetLoader;
 		private readonly IDictionary<Type, UiReference> _uiViews = new Dictionary<Type, UiReference>();
@@ -24,16 +24,7 @@ namespace GameLovers.UiService
 			_assetLoader = assetLoader;
 		}
 
-		/// <summary>
-		/// Initialize the service with <paramref name="configs"/> that define the game's UI
-		/// </summary>
-		/// <remarks>
-		/// To help configure the game's UI you need to create a UiConfigs Scriptable object by:
-		/// - Right Click on the Project View > Create > ScriptableObjects > Configs > UiConfigs
-		/// </remarks>
-		/// <exception cref="ArgumentException">
-		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated
-		/// </exception>
+		/// <inheritdoc />
 		public void Init(UiConfigs configs)
 		{
 			var uiConfigs = configs.Configs;
@@ -211,13 +202,13 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public T OpenUi<T>() where T : UiPresenter
+		public T OpenUi<T>(bool openedException = false) where T : UiPresenter
 		{
-			return OpenUi(typeof(T)) as T;
+			return OpenUi(typeof(T), openedException) as T;
 		}
 
 		/// <inheritdoc />
-		public UiPresenter OpenUi(Type type)
+		public UiPresenter OpenUi(Type type, bool openedException = false)
 		{
 			var ui = GetUi(type);
 			
@@ -226,24 +217,24 @@ namespace GameLovers.UiService
 				ui.InternalOpen();
 				_visibleUiList.Add(type);
 			}
-			else
+			else if(openedException)
 			{
-				Debug.LogWarning($"Is trying to open the {type.Name} ui but is already open");
+				throw new InvalidOperationException($"Is trying to open the {type.Name} ui but is already open");
 			}
 			
 			return ui;
 		}
 
 		/// <inheritdoc />
-		public T OpenUi<T, TData>(TData initialData) 
+		public T OpenUi<T, TData>(TData initialData, bool openedException = false) 
 			where T : class, IUiPresenterData 
 			where TData : struct
 		{
-			return OpenUi(typeof(T), initialData) as T;
+			return OpenUi(typeof(T), initialData, openedException) as T;
 		}
 
 		/// <inheritdoc />
-		public UiPresenter OpenUi<TData>(Type type, TData initialData) where TData : struct
+		public UiPresenter OpenUi<TData>(Type type, TData initialData, bool openedException = false) where TData : struct
 		{
 			var uiPresenterData = GetUi(type) as UiPresenterData<TData>;
 
@@ -254,17 +245,17 @@ namespace GameLovers.UiService
 			
 			uiPresenterData.InternalSetData(initialData);
 
-			return OpenUi(type);
+			return OpenUi(type, openedException);
 		}
 
 		/// <inheritdoc />
-		public T CloseUi<T>() where T : UiPresenter
+		public T CloseUi<T>(bool closedException = false) where T : UiPresenter
 		{
 			return CloseUi(typeof(T)) as T;
 		}
 
 		/// <inheritdoc />
-		public UiPresenter CloseUi(Type type)
+		public UiPresenter CloseUi(Type type, bool closedException = false)
 		{
 			var ui = GetUi(type);
 			
@@ -273,18 +264,18 @@ namespace GameLovers.UiService
 				_visibleUiList.Remove(type);
 				ui.InternalClose();
 			}
-			else
+			else if(closedException)
 			{
-				Debug.LogWarning($"Is trying to close the {type.Name} ui but is not open");
+				throw new InvalidOperationException($"Is trying to close the {type.Name} ui but is not open");
 			}
 
 			return ui;
 		}
 
 		/// <inheritdoc />
-		public T CloseUi<T>(T uiPresenter) where T : UiPresenter
+		public T CloseUi<T>(T uiPresenter, bool closedException = false) where T : UiPresenter
 		{
-			CloseUi(uiPresenter.GetType().UnderlyingSystemType);
+			CloseUi(uiPresenter.GetType().UnderlyingSystemType, closedException);
 
 			return uiPresenter;
 		}
