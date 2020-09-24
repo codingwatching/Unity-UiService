@@ -137,61 +137,71 @@ namespace GameLovers.UiService
 		List<Type> GetAllVisibleUi();
 
 		/// <summary>
-		/// Opens and returns the UI of given type <typeparamref name="T"/>
+		/// Opens and returns the UI of given type <typeparamref name="T"/>.
+		/// If the given <paramref name="openedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
+		/// if the <see cref="UiPresenter"/> is already opened.
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <typeparamref name="T"/>
 		/// </exception>
-		T OpenUi<T>() where T : UiPresenter;
+		T OpenUi<T>(bool openedException = false) where T : UiPresenter;
 
 		/// <summary>
-		/// Opens and returns the UI of given <paramref name="type"/>
+		/// Opens and returns the UI of given <paramref name="type"/>.
+		/// If the given <paramref name="openedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
+		/// if the <see cref="UiPresenter"/> is already opened.
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
 		/// </exception>
-		UiPresenter OpenUi(Type type);
+		UiPresenter OpenUi(Type type, bool openedException = false);
 
-		///<inheritdoc cref="OpenUi{T}()"/>
+		///<inheritdoc cref="OpenUi{T}(bool)"/>
 		/// <remarks>
 		/// It sets the given <paramref name="initialData"/> data BEFORE opening the UI
 		/// </remarks>
-		T OpenUi<T, TData>(TData initialData) 
+		T OpenUi<T, TData>(TData initialData, bool openedException = false) 
 			where T : class, IUiPresenterData 
 			where TData : struct;
 
-		///<inheritdoc cref="OpenUi(Type)"/>
+		///<inheritdoc cref="OpenUi(Type, bool)"/>
 		/// <exception cref="ArgumentException">
 		/// Thrown if the the given <paramref name="type"/> is not of inhereting from <see cref="UiPresenterData{T}"/> class
 		/// </exception>
 		/// <remarks>
 		/// It sets the given <paramref name="initialData"/> data BEFORE opening the UI
 		/// </remarks>
-		UiPresenter OpenUi<TData>(Type type, TData initialData) where TData : struct;
+		UiPresenter OpenUi<TData>(Type type, TData initialData, bool openedException = false) where TData : struct;
 
 		/// <summary>
-		/// Closes and returns the UI of given type <typeparamref name="T"/>
+		/// Closes and returns the UI of given type <typeparamref name="T"/>.
+		/// If the given <paramref name="closedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
+		/// if the <see cref="UiPresenter"/> is already closed.
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given type <typeparamref name="T"/>
 		/// </exception>
-		T CloseUi<T>() where T : UiPresenter;
+		T CloseUi<T>(bool closedException = false) where T : UiPresenter;
 
 		/// <summary>
-		/// Closes and returns the UI of given <paramref name="type"/>
+		/// Closes and returns the UI of given <paramref name="type"/>.
+		/// If the given <paramref name="closedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
+		/// if the <see cref="UiPresenter"/> is already closed.
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
 		/// </exception>
-		UiPresenter CloseUi(Type type);
+		UiPresenter CloseUi(Type type, bool closedException = false);
 
 		/// <summary>
-		/// Closes and returns the same given <paramref name="uiPresenter"/>
+		/// Closes and returns the same given <paramref name="uiPresenter"/>.
+		/// If the given <paramref name="closedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
+		/// if the <see cref="UiPresenter"/> is already closed.
 		/// </summary>
 		/// <exception cref="KeyNotFoundException">
 		/// Thrown if the service does NOT contain the given <paramref name="uiPresenter"/>
 		/// </exception>
-		T CloseUi<T>(T uiPresenter) where T : UiPresenter;
+		T CloseUi<T>(T uiPresenter, bool closedException = false) where T : UiPresenter;
 
 		/// <summary>
 		/// Closes all the visible <seealso cref="UiPresenter"/>
@@ -291,5 +301,21 @@ namespace GameLovers.UiService
 		/// You need to add it first by calling <seealso cref="AddUiSet"/>
 		/// </exception>
 		void CloseUiSet(int setId);
+	}
+
+	/// <inheritdoc />
+	public interface IUiServiceInit : IUiService
+	{
+		/// <summary>
+		/// Initialize the service with <paramref name="configs"/> that define the game's UI
+		/// </summary>
+		/// <remarks>
+		/// To help configure the game's UI you need to create a UiConfigs Scriptable object by:
+		/// - Right Click on the Project View > Create > ScriptableObjects > Configs > UiConfigs
+		/// </remarks>
+		/// <exception cref="ArgumentException">
+		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated
+		/// </exception>
+		void Init(UiConfigs configs);
 	}
 }
