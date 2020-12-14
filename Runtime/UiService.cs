@@ -75,20 +75,7 @@ namespace GameLovers.UiService
 				Presenter = uiPresenter
 			};
 			
-			for(int i = _layers.Count; i <= layer; i++)
-			{
-				var newObj = new GameObject($"Layer {i.ToString()}");
-				var canvas = newObj.AddComponent<Canvas>();
-				
-				newObj.transform.position = Vector3.zero;
-				canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-				canvas.sortingOrder = i;
-
-				_layers.Add(canvas);
-			}
-			
 			_uiViews.Add(reference.UiType, reference);
-			uiPresenter.transform.SetParent(_layers[layer].transform);
 			uiPresenter.Init(this);
 
 			if (openAfter)
@@ -140,13 +127,26 @@ namespace GameLovers.UiService
 			{
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
+
+			var layer = config.Layer;
+			for(int i = _layers.Count; i <= layer; i++)
+			{
+				var newObj = new GameObject($"Layer {i.ToString()}");
+				var canvas = newObj.AddComponent<Canvas>();
+				
+				newObj.transform.position = Vector3.zero;
+				canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+				canvas.sortingOrder = i;
+
+				_layers.Add(canvas);
+			}
 			
-			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, null, true);
+			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, _layers[layer].transform, false);
 			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 			
 			gameObject.SetActive(false);
 
-			AddUi(uiPresenter, config.Layer, openAfter);
+			AddUi(uiPresenter, layer, openAfter);
 
 			return uiPresenter;
 		}
