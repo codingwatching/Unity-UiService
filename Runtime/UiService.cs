@@ -9,15 +9,12 @@ using UnityEngine;
 
 namespace GameLovers.UiService
 {
-	/// <inheritdoc />
-	public class UiService : IUiServiceInit
-	{
 		private readonly IUiAssetLoader _assetLoader;
 		private readonly IDictionary<Type, UiReference> _uiViews = new Dictionary<Type, UiReference>();
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
 		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
 		private readonly IList<Type> _visibleUiList = new List<Type>();
-		private readonly IList<Canvas> _layers = new List<Canvas>();
+		private readonly IList<GameObject> _layers = new List<GameObject>();
 
 		public UiService(IUiAssetLoader assetLoader)
 		{
@@ -42,7 +39,7 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public Canvas GetLayer(int layer)
+		public GameObject GetLayer(int layer)
 		{
 			return _layers[layer];
 		}
@@ -132,13 +129,9 @@ namespace GameLovers.UiService
 			for(int i = _layers.Count; i <= layer; i++)
 			{
 				var newObj = new GameObject($"Layer {i.ToString()}");
-				var canvas = newObj.AddComponent<Canvas>();
 				
 				newObj.transform.position = Vector3.zero;
-				canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-				canvas.sortingOrder = i;
-
-				_layers.Add(canvas);
+				_layers.Add(newObj);
 			}
 			
 			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, _layers[layer].transform, false);

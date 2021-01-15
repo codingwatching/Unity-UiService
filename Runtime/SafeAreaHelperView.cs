@@ -17,25 +17,23 @@ namespace FirstLight.UiService
 		[SerializeField] private RectTransform _rectTransform;
 		[SerializeField] private bool _ignoreWidth = true;
 		[SerializeField] private bool _onUpdate = false;
+		[SerializeField] private Vector2 _refResolution;
 
 		private Vector2 _initAnchoredPosition;
-		private Vector2 _refResolution;
 		private Rect _resolution;
 		private Rect _safeArea;
 
 		internal void OnValidate()
 		{
 			_rectTransform = _rectTransform ? _rectTransform : GetComponent<RectTransform>();
+			_refResolution = transform.root.GetComponent<CanvasScaler>().referenceResolution;
 			_initAnchoredPosition = _rectTransform.anchoredPosition;
 		}
 
 		private void Awake()
 		{
-			var resolution = Screen.currentResolution;
-			
-			_refResolution = transform.root.GetComponent<CanvasScaler>().referenceResolution;
 			_initAnchoredPosition = _rectTransform.anchoredPosition;
-			_resolution = new Rect(0,0, resolution.width, resolution.height);
+			_resolution = new Rect(0,0, Screen.currentResolution.width, Screen.currentResolution.height);
 			_safeArea = Screen.safeArea;
 		}
 
@@ -60,7 +58,6 @@ namespace FirstLight.UiService
 			
 #if UNITY_EDITOR
 			// Because Unity Device Simulator and Game View have different screen resolution configs and sometimes use Desktop resolution
-			_refResolution = transform.root.GetComponent<CanvasScaler>().referenceResolution;
 			_safeArea = Screen.safeArea;
 			_resolution = new Rect(0, 0, Screen.width, Screen.height);
 			_resolution = _resolution == _safeArea ? _resolution : new Rect(0,0, Screen.currentResolution.width, Screen.currentResolution.height); 
