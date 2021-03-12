@@ -32,8 +32,11 @@ namespace GameLovers.UiService
 
 			await Task.Delay(Mathf.RoundToInt(_animation.clip.length * 1000));
 
-			gameObject.SetActive(false);
-			OnClosedCompleted();
+			if (gameObject != null)
+			{
+				gameObject.SetActive(false);
+				OnClosedCompleted();
+			}
 		}
 
 		protected override async void OnOpened()
@@ -41,11 +44,17 @@ namespace GameLovers.UiService
 			_canvasGroup.alpha = 0;
 			_animation.clip = _introAnimationClip;
 			_animation.Play();
+			
 			await Task.Yield();
+			
 			_canvasGroup.alpha = 1;
+			
 			await Task.Delay(Mathf.RoundToInt(_animation.clip.length * 1000));
 
-			OnOpenedCompleted();
+			if (gameObject != null)
+			{
+				OnOpenedCompleted();
+			}
 		}
 
 		/// <summary>
@@ -94,7 +103,10 @@ namespace GameLovers.UiService
 
 			await Task.Delay(Mathf.RoundToInt(_animation.clip.length * 1000));
 
-			OnOpenedCompleted();
+			if (gameObject != null)
+			{
+				OnOpenedCompleted();
+			}
 		}
 
 		protected override async void OnClosed()
@@ -104,8 +116,11 @@ namespace GameLovers.UiService
 
 			await Task.Delay(Mathf.RoundToInt(_animation.clip.length * 1000));
 
-			gameObject.SetActive(false);
-			OnClosedCompleted();
+			if (gameObject != null)
+			{
+				gameObject.SetActive(false);
+				OnClosedCompleted();
+			}
 		}
 
 		

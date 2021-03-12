@@ -9,6 +9,9 @@ using UnityEngine;
 
 namespace GameLovers.UiService
 {
+	/// <inheritdoc />
+	public class UiService : IUiServiceInit
+	{
 		private readonly IUiAssetLoader _assetLoader;
 		private readonly IDictionary<Type, UiReference> _uiViews = new Dictionary<Type, UiReference>();
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
@@ -36,6 +39,23 @@ namespace GameLovers.UiService
 			{
 				AddUiSet(set);
 			}
+		}
+
+		/// <summary>
+		/// Adds the given <paramref name="layer"/> to be controlled by the <see cref="UiService"/>.
+		/// Layers allow to group <see cref="UiPresenter"/> into the same canvas rendering order.
+		/// </summary>
+		public GameObject AddLayer(int layer)
+		{
+			for(int i = _layers.Count; i <= layer; i++)
+			{
+				var newObj = new GameObject($"Layer {i.ToString()}");
+				
+				newObj.transform.position = Vector3.zero;
+				_layers.Add(newObj);
+			}
+
+			return _layers[layer];
 		}
 
 		/// <inheritdoc />
@@ -125,21 +145,13 @@ namespace GameLovers.UiService
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 
-			var layer = config.Layer;
-			for(int i = _layers.Count; i <= layer; i++)
-			{
-				var newObj = new GameObject($"Layer {i.ToString()}");
-				
-				newObj.transform.position = Vector3.zero;
-				_layers.Add(newObj);
-			}
-			
-			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, _layers[layer].transform, false);
+			var layer = AddLayer(config.Layer);
+			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, layer.transform, false);
 			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 			
 			gameObject.SetActive(false);
 
-			AddUi(uiPresenter, layer, openAfter);
+			AddUi(uiPresenter, config.Layer, openAfter);
 
 			return uiPresenter;
 		}
