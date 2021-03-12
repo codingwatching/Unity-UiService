@@ -14,9 +14,9 @@ namespace GameLovers.UiService
 	public interface IUiService
 	{
 		/// <summary>
-		/// Requests the <see cref="Canvas"/> of the given <paramref name="layer"/>
+		/// Requests the root <see cref="GameObject"/> of the given <paramref name="layer"/>
 		/// </summary>
-		Canvas GetLayer(int layer);
+		GameObject GetLayer(int layer);
 		
 		/// <summary>
 		/// Adds the given UI <paramref name="config"/> to the service

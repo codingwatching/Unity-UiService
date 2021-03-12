@@ -17,7 +17,7 @@ namespace GameLovers.UiService
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
 		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
 		private readonly IList<Type> _visibleUiList = new List<Type>();
-		private readonly IList<Canvas> _layers = new List<Canvas>();
+		private readonly IList<GameObject> _layers = new List<GameObject>();
 
 		public UiService(IUiAssetLoader assetLoader)
 		{
@@ -41,8 +41,25 @@ namespace GameLovers.UiService
 			}
 		}
 
+		/// <summary>
+		/// Adds the given <paramref name="layer"/> to be controlled by the <see cref="UiService"/>.
+		/// Layers allow to group <see cref="UiPresenter"/> into the same canvas rendering order.
+		/// </summary>
+		public GameObject AddLayer(int layer)
+		{
+			for(int i = _layers.Count; i <= layer; i++)
+			{
+				var newObj = new GameObject($"Layer {i.ToString()}");
+				
+				newObj.transform.position = Vector3.zero;
+				_layers.Add(newObj);
+			}
+
+			return _layers[layer];
+		}
+
 		/// <inheritdoc />
-		public Canvas GetLayer(int layer)
+		public GameObject GetLayer(int layer)
 		{
 			return _layers[layer];
 		}
@@ -75,20 +92,7 @@ namespace GameLovers.UiService
 				Presenter = uiPresenter
 			};
 			
-			for(int i = _layers.Count; i <= layer; i++)
-			{
-				var newObj = new GameObject($"Layer {i.ToString()}");
-				var canvas = newObj.AddComponent<Canvas>();
-				
-				newObj.transform.position = Vector3.zero;
-				canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-				canvas.sortingOrder = i;
-
-				_layers.Add(canvas);
-			}
-			
 			_uiViews.Add(reference.UiType, reference);
-			uiPresenter.transform.SetParent(_layers[layer].transform);
 			uiPresenter.Init(this);
 
 			if (openAfter)
@@ -140,8 +144,9 @@ namespace GameLovers.UiService
 			{
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
-			
-			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, null, true);
+
+			var layer = AddLayer(config.Layer);
+			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, layer.transform, false);
 			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 			
 			gameObject.SetActive(false);
