@@ -4,6 +4,19 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [0.7.0] - 2021-03-12
+
+- Added *NonDrawingView* to have an Image without a renderer to not add additional draw calls.
+- Added *SafeAreaHelperView* to add the possibility for the *RectTransform* to adjust himself to the screen notches
+- Added *AnimatedUiPresenter* to play animation on enter or closing
+- Added the possibility to add *Layers* externally into the *UiService*
+  
+**Changed**:
+- Now *Canvas* are single *GameObjects* that can be controlled outside of the *UiService*
+
+**Fixed**:
+- Fixed the issue when setting data on *UiPresenterData* not being invoked
+
 ## [0.6.1] - 2020-09-24
 
 - Updated dependency packages
