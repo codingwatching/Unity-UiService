@@ -41,10 +41,7 @@ namespace GameLovers.UiService
 			}
 		}
 
-		/// <summary>
-		/// Adds the given <paramref name="layer"/> to be controlled by the <see cref="UiService"/>.
-		/// Layers allow to group <see cref="UiPresenter"/> into the same canvas rendering order.
-		/// </summary>
+		/// <inheritdoc />
 		public GameObject AddLayer(int layer)
 		{
 			for(int i = _layers.Count; i <= layer; i++)
@@ -145,8 +142,28 @@ namespace GameLovers.UiService
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 
+			if (HasUiPresenter(type))
+			{
+				var ui = GetUi(type);
+				
+				ui.gameObject.SetActive(openAfter);
+
+				return ui;
+			}
+
 			var layer = AddLayer(config.Layer);
 			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, layer.transform, false);
+			
+			if (HasUiPresenter(type))
+			{
+				var ui = GetUi(type);
+				
+				_assetLoader.UnloadAsset(gameObject);
+				ui.gameObject.SetActive(openAfter);
+
+				return ui;
+			}
+			
 			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 			
 			gameObject.SetActive(false);

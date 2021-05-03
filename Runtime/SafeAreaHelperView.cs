@@ -12,10 +12,12 @@ namespace FirstLight.UiService
 	[RequireComponent(typeof(RectTransform))]
 	public class SafeAreaHelperView : MonoBehaviour
 	{
-		private const float _floatTolerance = 0.01f;
-		
+		[Tooltip("If true then will only shift the anchor when the pivot is out of the safe area. If inside the safe area" +
+		         "will remain in the same anchor position")]
+		[SerializeField] private bool _checkAreaBounds = false;
 		[SerializeField] private RectTransform _rectTransform;
-		[SerializeField] private bool _ignoreWidth = true;
+		[SerializeField] private bool _ignoreHeight = false;
+		[SerializeField] private bool _ignoreWidth = false;
 		[SerializeField] private bool _onUpdate = false;
 		[SerializeField] private Vector2 _refResolution;
 
@@ -69,10 +71,10 @@ namespace FirstLight.UiService
 			}
 			
 			// Check if anchored to top or bottom
-			if (Math.Abs(anchorMax.y - anchorMin.y) < _floatTolerance)
+			if (!_ignoreHeight && Mathf.Approximately(anchorMax.y,anchorMin.y) && !CheckHeightAreaBounds(anchoredPosition))
 			{
 				// bottom
-				if (anchorMax.y < _floatTolerance)
+				if (anchorMax.y < Mathf.Epsilon)
 				{
 					anchoredPosition.y += (_safeArea.yMin - _resolution.yMin) * _refResolution.y / _resolution.height; 
 				}
@@ -83,10 +85,10 @@ namespace FirstLight.UiService
 			}
 			
 			// Check if anchored to left or right
-			if (!_ignoreWidth && Math.Abs(anchorMax.x - anchorMin.x) < _floatTolerance)
+			if (!_ignoreWidth && Mathf.Approximately(anchorMax.x,anchorMin.x) && !CheckWidthAreaBounds(anchoredPosition))
 			{
 				// left
-				if (anchorMax.x < _floatTolerance)
+				if (anchorMax.x < Mathf.Epsilon)
 				{
 					anchoredPosition.x += (_safeArea.xMin - _resolution.xMin) * _refResolution.x / _resolution.width;
 				}
@@ -97,6 +99,16 @@ namespace FirstLight.UiService
 			}
 			
 			_rectTransform.anchoredPosition = anchoredPosition;
+		}
+	
+		private bool CheckWidthAreaBounds(Vector2 anchoredPosition)
+		{
+			return _checkAreaBounds && anchoredPosition.x > _safeArea.xMin && anchoredPosition.x < _safeArea.xMax;
+		}
+	
+		private bool CheckHeightAreaBounds(Vector2 anchoredPosition)
+		{
+			return _checkAreaBounds && anchoredPosition.y > _safeArea.yMin && anchoredPosition.y < _safeArea.yMax;
 		}
 	}
 	

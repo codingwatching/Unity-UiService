@@ -4,6 +4,14 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [0.7.1] - 2021-05-03
+
+- Added the possibility for *SafeAreaHelpersView* to maintain the View in the same position if not placed outside of the safe area
+
+**Fixed**:
+- Fixed the duplicated memory issue when loading the same *UiPresenter* multiple times at the same time before when of them is finished
+
+
 ## [0.7.0] - 2021-03-12
 
 - Added *NonDrawingView* to have an Image without a renderer to not add additional draw calls.
