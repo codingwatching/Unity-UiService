@@ -55,11 +55,11 @@ namespace GameLovers.UiService
 
 		internal virtual void InternalClose()
 		{
-			if (this != null && gameObject != null)
+			OnClosed();
+			if (gameObject != null)
 			{
 				gameObject.SetActive(false);
 			}
-			OnClosed();
 		}
 	}
 
