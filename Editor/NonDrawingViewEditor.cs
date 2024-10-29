@@ -5,7 +5,7 @@ using UnityEngine;
 
 // ReSharper disable once CheckNamespace
 
-namespace FirstLightEditor.UiService
+namespace GameLoversEditor.UiService
 {
 	/// <summary>
 	/// <see cref="NonDrawingView"/> custom inspector

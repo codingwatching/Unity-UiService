@@ -8,313 +8,235 @@ using UnityEngine;
 namespace GameLovers.UiService
 {
 	/// <summary>
-	/// This service provides an abstraction layer to interact with the game's <seealso cref="UiPresenter"/>
+	/// This service provides an abstraction layer to interact with the game's UI <seealso cref="UiPresenter"/>
 	/// The Ui Service is organized by layers. The higher the layer the more close is to the camera viewport
 	/// </summary>
 	public interface IUiService
 	{
 		/// <summary>
-		/// Requests the root <see cref="GameObject"/> of the given <paramref name="layer"/>
+		/// Gets a read-only dictionary of the Presenters currently Loaded in memory by the UI service.
 		/// </summary>
-		GameObject GetLayer(int layer);
-		
+		IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters { get; }
+
 		/// <summary>
-		/// Adds the given UI <paramref name="config"/> to the service
+		/// Gets a read-only dictionary of the layers used by the UI service.
 		/// </summary>
-		/// <exception cref="ArgumentException">
-		/// Thrown if the service already contains the given <paramref name="config"/>
-		/// </exception>
+		IReadOnlyDictionary<int, GameObject> Layers { get; }
+
+		/// <summary>
+		/// Gets a read-only dictionary of the containers of UI, called 'Ui Set' maintained by the UI service.
+		/// </summary>
+		IReadOnlyDictionary<int, UiSetConfig> UiSets { get; }
+
+		/// <summary>
+		/// Adds a UI configuration to the service.
+		/// </summary>
+		/// <param name="config">The UI configuration to add.</param>
 		void AddUiConfig(UiConfig config);
-		
-		/// <summary>
-		/// Adds the given <paramref name="uiPresenter"/> to the service and to be included inside the given <paramref name="layer"/>.
-		/// If the given <paramref name="openAfter"/> is true, will open the <see cref="UiPresenter"/> after adding it to the service
-		/// </summary>
-		/// <exception cref="ArgumentException">
-		/// Thrown if the service already contains the given <paramref name="uiPresenter"/>
-		/// </exception>
-		void AddUi<T>(T uiPresenter, int layer, bool openAfter = false) where T : UiPresenter;
-		
-		/// <summary>
-		/// Removes and returns the UI of the given type <typeparamref name="T"/> without unloading it from the service
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given type <typeparamref name="T"/>
-		/// </exception>
-		T RemoveUi<T>() where T : UiPresenter;
 
 		/// <summary>
-		/// Removes and returns the UI of the given <paramref name="type"/> without unloading it from the service
+		/// Adds a UI set configuration to the service.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
-		/// </exception>
-		UiPresenter RemoveUi(Type type);
+		/// <param name="uiSet">The UI set configuration to add.</param>
+		void AddUiSet(UiSetConfig uiSet);
 
 		/// <summary>
-		/// Removes and returns the given <paramref name="uiPresenter"/> without unloading it from the service
+		/// Adds a UI presenter to the service and includes it in the specified layer.
+		/// If <paramref name="openAfter"/> is true, the UI presenter will be opened after being added to the service.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/>
-		/// </exception>
-		T RemoveUi<T>(T uiPresenter) where T : UiPresenter;
-		
+		/// <typeparam name="T">The type of UI presenter to add.</typeparam>
+		/// <param name="ui">The UI presenter to add.</param>
+		/// <param name="layer">The layer to include the UI presenter in.</param>
+		/// <param name="openAfter">Whether to open the UI presenter after adding it to the service.</param>
+		void AddUi<T>(T ui, int layer, bool openAfter = false) where T : UiPresenter;
+
 		/// <summary>
-		/// Loads an UI asynchronously with the given <typeparamref name="T"/>.
-		/// This method can be controlled in an async method and returns the UI loaded.
-		/// If the given <paramref name="openAfter"/> is true, will open the <see cref="UiPresenter"/> after loading
+		/// Removes the UI of the specified type from the service without unloading it.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain a <see cref="UiConfig"/> of the given type <typeparamref name="T"/>.
-		/// You need to call <seealso cref="AddUiConfig"/> or <seealso cref="AddUi{T}"/> or initialize the service first
-		/// </exception>
-		Task<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter;
-		
+		/// <typeparam name="T">The type of UI to remove.</typeparam>
+		/// <returns>True if the UI was removed, false otherwise.</returns>
+		bool RemoveUi<T>() where T : UiPresenter => RemoveUi(typeof(T));
+
 		/// <summary>
-		/// Loads an UI asynchronously with the given <paramref name="type"/>.
-		/// This method can be controlled in an async method and returns the UI loaded.
-		/// If the given <paramref name="openAfter"/> is true, will open the <see cref="UiPresenter"/> after loading
+		/// Removes the specified UI presenter from the service without unloading it.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain a <see cref="UiConfig"/> of the given <paramref name="type"/>
-		/// You need to call <seealso cref="AddUiConfig"/> or <seealso cref="AddUi{T}"/> or initialize the service first
-		/// </exception>
+		/// <typeparam name="T">The type of UI presenter to remove.</typeparam>
+		/// <param name="uiPresenter">The UI presenter to remove.</param>
+		/// <returns>True if the UI presenter was removed, false otherwise.</returns>
+		bool RemoveUi<T>(T uiPresenter) where T : UiPresenter => RemoveUi(uiPresenter.GetType().UnderlyingSystemType);
+
+		/// <summary>
+		/// Removes the UI of the specified type from the service without unloading it.
+		/// </summary>
+		/// <param name="type">The type of UI to remove.</param>
+		/// <returns>True if the UI was removed, false otherwise.</returns>
+		bool RemoveUi(Type type);
+
+		/// <summary>
+		/// Removes and returns all UI presenters from the specified UI set that are still present in the service.
+		/// </summary>
+		/// <param name="setId">The ID of the UI set to remove from.</param>
+		/// <returns>A list of removed UI presenters.</returns>
+		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI set with the specified ID.</exception>
+		List<UiPresenter> RemoveUiSet(int setId);
+
+		/// <summary>
+		/// Loads the UI of the specified type asynchronously.
+		/// This method can be controlled in an async method and returns the loaded UI.
+		/// If <paramref name="openAfter"/> is true, the UI will be opened after loading.
+		/// </summary>
+		/// <typeparam name="T">The type of UI to load.</typeparam>
+		/// <param name="openAfter">Whether to open the UI after loading.</param>
+		/// <returns>A task that completes with the loaded UI.</returns>
+		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI configuration for the specified type.</exception>
+		async Task<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter => (await LoadUiAsync(typeof(T), openAfter)) as T;
+
+		/// <summary>
+		/// Loads the UI of the specified type asynchronously.
+		/// This method can be controlled in an async method and returns the loaded UI.
+		/// If <paramref name="openAfter"/> is true, the UI will be opened after loading.
+		/// </summary>
+		/// <param name="type">The type of UI to load.</param>
+		/// <param name="openAfter">Whether to open the UI after loading.</param>
+		/// <returns>A task that completes with the loaded UI.</returns>
+		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI configuration for the specified type.</exception>
 		Task<UiPresenter> LoadUiAsync(Type type, bool openAfter = false);
-		
+
 		/// <summary>
-		/// Unloads the UI of the given type <typeparamref name="T"/>
+		/// Loads all UI presenters from the specified UI set asynchronously.
+		/// This method can be controlled in an async method and returns each UI when it is loaded.
+		/// The UIs are returned in a first-load-first-return scheme.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given type <typeparamref name="T"/>
-		/// </exception>
-		void UnloadUi<T>() where T : UiPresenter;
-		
+		/// <param name="setId">The ID of the UI set to load from.</param>
+		/// <returns>An array of tasks that complete with each loaded UI.</returns>
+		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI set with the specified ID.</exception>
+		Task<Task<UiPresenter>>[] LoadUiSetAsync(int setId);
+
 		/// <summary>
-		/// Unloads the UI of the given <paramref name="type"/>
+		/// Unloads the UI of the specified type.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
-		/// </exception>
+		/// <typeparam name="T">The type of UI to unload.</typeparam>
+		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI of the specified type.</exception>
+		void UnloadUi<T>() where T : UiPresenter => UnloadUi(typeof(T));
+
+		/// <summary>
+		/// Unloads the specified UI presenter.
+		/// </summary>
+		/// <typeparam name="T">The type of UI presenter to unload.</typeparam>
+		/// <param name="uiPresenter">The UI presenter to unload.</param>
+		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain the specified UI presenter.</exception>
+		void UnloadUi<T>(T uiPresenter) where T : UiPresenter => UnloadUi(uiPresenter.GetType().UnderlyingSystemType);
+
+		/// <summary>
+		/// Unloads the UI of the specified type.
+		/// </summary>
+		/// <param name="type">The type of UI to unload.</param>
+		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI of the specified type.</exception>
 		void UnloadUi(Type type);
 
 		/// <summary>
-		/// Unloads the UI of the given <paramref name="uiPresenter"/>
+		/// Unloads all UI presenters from the specified UI set.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
-		/// </exception>
-		void UnloadUi<T>(T uiPresenter) where T : UiPresenter;
-		
-		/// <summary>
-		/// Checks if the service contains <seealso cref="UiPresenter"/> of the given <typeparamref name="T"/>
-		/// </summary>
-		bool HasUiPresenter<T>() where T : UiPresenter;
-		
-		/// <summary>
-		/// Checks if the service contains <seealso cref="UiPresenter"/> of the given <paramref name="type"/> is loaded or not 
-		/// </summary>
-		bool HasUiPresenter(Type type);
-		
-		/// <summary>
-		/// Requests the UI of given type <typeparamref name="T"/>
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <typeparamref name="T"/>
-		/// </exception>
-		T GetUi<T>() where T : UiPresenter;
-		
-		/// <summary>
-		/// Requests the UI of given <paramref name="type"/>
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
-		/// </exception>
-		UiPresenter GetUi(Type type);
+		/// <param name="setId">The ID of the UI set to unload from.</param>
+		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI set with the specified ID.</exception>
+		void UnloadUiSet(int setId);
 
 		/// <summary>
-		/// Requests the list all the visible UIs' <seealso cref="Type"/> on the screen
+		/// Gets a list of all visible UI presenters.
 		/// </summary>
+		/// <returns>A list of types of visible UI presenters.</returns>
 		List<Type> GetAllVisibleUi();
 
 		/// <summary>
-		/// Opens and returns the UI of given type <typeparamref name="T"/>.
-		/// If the given <paramref name="openedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
-		/// if the <see cref="UiPresenter"/> is already opened.
+		/// Opens a UI presenter asynchronously, loading its assets if necessary.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <typeparamref name="T"/>
-		/// </exception>
-		T OpenUi<T>(bool openedException = false) where T : UiPresenter;
+		/// <typeparam name="T">The type of UI presenter to open.</typeparam>
+		/// <returns>A task that completes when the UI presenter is opened.</returns>
+		async Task<T> OpenUiAsync<T>() where T : UiPresenter => (await OpenUiAsync(typeof(T))) as T;
 
 		/// <summary>
-		/// Opens and returns the UI of given <paramref name="type"/>.
-		/// If the given <paramref name="openedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
-		/// if the <see cref="UiPresenter"/> is already opened.
+		/// Opens a UI presenter asynchronously, loading its assets if necessary.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
-		/// </exception>
-		UiPresenter OpenUi(Type type, bool openedException = false);
+		/// <param name="type">The type of UI presenter to open.</param>
+		/// <returns>A task that completes when the UI presenter is opened.</returns>
+		Task<UiPresenter> OpenUiAsync(Type type);
 
-		///<inheritdoc cref="OpenUi{T}(bool)"/>
-		/// <remarks>
-		/// It sets the given <paramref name="initialData"/> data BEFORE opening the UI
-		/// </remarks>
-		T OpenUi<T, TData>(TData initialData, bool openedException = false) 
+		/// <summary>
+		/// Opens a UI presenter asynchronously, loading its assets if necessary, and sets its initial data.
+		/// </summary>
+		/// <typeparam name="T">The type of UI presenter to open.</typeparam>
+		/// <typeparam name="TData">The type of initial data to set.</typeparam>
+		/// <param name="initialData">The initial data to set.</param>
+		/// <returns>A task that completes when the UI presenter is opened.</returns>
+		async Task<T> OpenUiAsync<T, TData>(TData initialData) 
 			where T : class, IUiPresenterData 
-			where TData : struct;
-
-		///<inheritdoc cref="OpenUi(Type, bool)"/>
-		/// <exception cref="ArgumentException">
-		/// Thrown if the the given <paramref name="type"/> is not of inhereting from <see cref="UiPresenterData{T}"/> class
-		/// </exception>
-		/// <remarks>
-		/// It sets the given <paramref name="initialData"/> data BEFORE opening the UI
-		/// </remarks>
-		UiPresenter OpenUi<TData>(Type type, TData initialData, bool openedException = false) where TData : struct;
+			where TData : struct => await OpenUiAsync(typeof(T), initialData) as T;
 
 		/// <summary>
-		/// Closes and returns the UI of given type <typeparamref name="T"/>.
-		/// If the given <paramref name="closedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
-		/// if the <see cref="UiPresenter"/> is already closed.
+		/// Opens a UI presenter asynchronously, loading its assets if necessary, and sets its initial data.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given type <typeparamref name="T"/>
-		/// </exception>
-		T CloseUi<T>(bool closedException = false) where T : UiPresenter;
+		/// <param name="type">The type of UI presenter to open.</param>
+		/// <param name="initialData">The initial data to set.</param>
+		/// <returns>A task that completes when the UI presenter is opened.</returns>
+		Task<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct;
 
 		/// <summary>
-		/// Closes and returns the UI of given <paramref name="type"/>.
-		/// If the given <paramref name="closedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
-		/// if the <see cref="UiPresenter"/> is already closed.
+		/// Closes a UI presenter and optionally destroys its assets.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <paramref name="type"/>
-		/// </exception>
-		UiPresenter CloseUi(Type type, bool closedException = false);
+		/// <typeparam name="T">The type of UI presenter to close.</typeparam>
+		/// <param name="destroy">Whether to destroy the UI presenter's assets.</param>
+		void CloseUi<T>(bool destroy = false) where T : UiPresenter => CloseUi(typeof(T), destroy);
 
 		/// <summary>
-		/// Closes and returns the same given <paramref name="uiPresenter"/>.
-		/// If the given <paramref name="closedException"/> is true, then will throw an <see cref="InvalidOperationException"/>
-		/// if the <see cref="UiPresenter"/> is already closed.
+		/// Closes a UI presenter and optionally destroys its assets.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain the given <paramref name="uiPresenter"/>
-		/// </exception>
-		T CloseUi<T>(T uiPresenter, bool closedException = false) where T : UiPresenter;
+		/// <param name="uiPresenter">The UI presenter to close.</param>
+		/// <param name="destroy">Whether to destroy the UI presenter's assets.</param>
+		/// <returns>A task that completes when the UI presenter is closed.</returns>
+		void CloseUi<T>(T uiPresenter, bool destroy = false) where T : UiPresenter => CloseUi(uiPresenter.GetType().UnderlyingSystemType, destroy);
 
 		/// <summary>
-		/// Closes all the visible <seealso cref="UiPresenter"/>
+		/// Closes a UI presenter and optionally destroys its assets.
+		/// </summary>
+		/// <param name="type">The type of UI presenter to close.</param>
+		/// <param name="destroy">Whether to destroy the UI presenter's assets.</param>
+		/// <returns>A task that completes when the UI presenter is closed.</returns>
+		void CloseUi(Type type, bool destroy = false);
+
+		/// <summary>
+		/// Closes all visible UI presenters.
 		/// </summary>
 		void CloseAllUi();
 
 		/// <summary>
-		/// Closes all the visible <seealso cref="UiPresenter"/> in the given <paramref name="layer"/>
+		/// Closes all visible UI presenters in the given layer.
 		/// </summary>
+		/// <param name="layer">The layer to close UI presenters in.</param>
 		void CloseAllUi(int layer);
 
 		/// <summary>
-		/// Closes all the visible <seealso cref="UiPresenter"/> in front or in the same layer of the given type <typeparamref name="T"/>
-		/// It excludes any visible  <seealso cref="UiPresenter"/> present in layers of the given <paramref name="excludeLayers"/>
+		/// Closes all UI presenters that are part of the given UI set configuration.
 		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given type <typeparamref name="T"/>
-		/// </exception>
-		void CloseUiAndAllInFront<T>(params int[] excludeLayers) where T : UiPresenter;
-
-		/// <summary>
-		/// Adds the given <paramref name="uiSet"/> to the service
-		/// </summary>
-		/// <exception cref="ArgumentException">
-		/// Thrown if the service already contains the given <paramref name="uiSet"/>
-		/// </exception>
-		void AddUiSet(UiSetConfig uiSet);
-
-		/// <summary>
-		/// Removes and returns all the <see cref="UiPresenter"/> from given <paramref name="setId "/> that are still present in the service
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
-		/// You need to add it first by calling <seealso cref="AddUiSet"/>
-		/// </exception>
-		List<UiPresenter> RemoveUiPresentersFromSet(int setId);
-		
-		/// <summary>
-		/// Loads asynchronously all the <see cref="UiPresenter"/> from given <paramref name="setId "/> and have not yet been loaded.
-		/// This method can be controlled in an async method and returns every UI when completes loaded.
-		/// This method can be controlled in a foreach loop and it will return the UIs in a first-load-first-return scheme 
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
-		/// You need to add it first by calling <seealso cref="AddUiSet"/>
-		/// </exception>
-		Task<Task<UiPresenter>>[] LoadUiSetAsync(int setId);
-
-		/// <summary>
-		/// Unloads all the <see cref="UiPresenter"/> from given <paramref name="setId "/> that are still present in the service
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
-		/// You need to add it first by calling <seealso cref="AddUiSet"/>
-		/// </exception>
-		void UnloadUiSet(int setId);
-
-		/// <summary>
-		/// Checks if the service contains or not the <seealso cref="UiSetConfig"/> of the given <paramref name="setId"/>
-		/// </summary>
-		bool HasUiSet(int setId);
-
-		/// <summary>
-		/// Checks if the service containers all the <seealso cref="UiPresenter"/> belonging in the given <paramref name="setId"/>
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
-		/// You need to add it first by calling <seealso cref="AddUiSet"/>
-		/// </exception>
-		bool HasAllUiPresentersInSet(int setId);
-		
-		/// <summary>
-		/// Requests the <seealso cref="UiSetConfig"/> of given type <paramref name="setId"/>
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
-		/// You need to add it first by calling <seealso cref="AddUiSet"/>
-		/// </exception>
-		UiSetConfig GetUiSet(int setId);
-		
-		/// <summary>
-		/// Opens all the <seealso cref="UiPresenter"/> that are part of the given <paramref name="setId"/>
-		/// If the given <paramref name="closeVisibleUi"/> is set to true, will close the currently open <seealso cref="UiPresenter"/>
-		/// that are not part of the given <paramref name="setId"/>
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
-		/// You need to add it first by calling <seealso cref="AddUiSet"/>
-		/// </exception>
-		void OpenUiSet(int setId, bool closeVisibleUi);
-		
-		/// <summary>
-		/// Closes all the <seealso cref="UiPresenter"/> that are part of the given <paramref name="setId"/>
-		/// </summary>
-		/// <exception cref="KeyNotFoundException">
-		/// Thrown if the service does NOT contain an <see cref="UiSetConfig"/> with the given <paramref name="setId"/>.
-		/// You need to add it first by calling <seealso cref="AddUiSet"/>
-		/// </exception>
-		void CloseUiSet(int setId);
+		/// <param name="setId">The ID of the UI set configuration to close.</param>
+		void CloseAllUiSet(int setId);
 	}
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// This interface provides a way to initialize the UI service with the game's UI configurations.
+	/// </remarks>
 	public interface IUiServiceInit : IUiService
 	{
 		/// <summary>
-		/// Initialize the service with <paramref name="configs"/> that define the game's UI
+		/// Initializes the UI service with the given UI configurations.
 		/// </summary>
+		/// <param name="configs">The UI configurations to initialize the service with.</param>
 		/// <remarks>
-		/// To help configure the game's UI you need to create a UiConfigs Scriptable object by:
+		/// To help configure the game's UI, you need to create a UiConfigs Scriptable object by:
 		/// - Right Click on the Project View > Create > ScriptableObjects > Configs > UiConfigs
 		/// </remarks>
 		/// <exception cref="ArgumentException">
-		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated
+		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated.
 		/// </exception>
 		void Init(UiConfigs configs);
 	}

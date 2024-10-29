@@ -13,11 +13,25 @@ namespace GameLovers.UiService
 	public class UiService : IUiServiceInit
 	{
 		private readonly IUiAssetLoader _assetLoader;
-		private readonly IDictionary<Type, UiReference> _uiViews = new Dictionary<Type, UiReference>();
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
-		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
 		private readonly IList<Type> _visibleUiList = new List<Type>();
-		private readonly IList<GameObject> _layers = new List<GameObject>();
+		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
+		private readonly IDictionary<int, GameObject> _layers = new Dictionary<int, GameObject>();
+		private readonly IDictionary<Type, UiPresenter> _uiPresenters = new Dictionary<Type, UiPresenter>();
+
+		/// <inheritdoc />
+		public IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters => new Dictionary<Type, UiPresenter>(_uiPresenters);
+
+		/// <inheritdoc />
+		public IReadOnlyDictionary<int, GameObject> Layers => new Dictionary<int, GameObject>(_layers);
+
+		/// <inheritdoc />
+		public IReadOnlyDictionary<int, UiSetConfig> UiSets => new Dictionary<int, UiSetConfig>(_uiSets);
+
+		private Type _loadingSpinnerType;
+		private Transform _uiParent;
+
+		public UiService() : this(new UiAssetLoader()) { }
 
 		public UiService(IUiAssetLoader assetLoader)
 		{
@@ -29,36 +43,26 @@ namespace GameLovers.UiService
 		{
 			var uiConfigs = configs.Configs;
 			var sets = configs.Sets;
-			
+
 			foreach (var uiConfig in uiConfigs)
 			{
 				AddUiConfig(uiConfig);
 			}
-			
+
 			foreach (var set in sets)
 			{
 				AddUiSet(set);
 			}
-		}
 
-		/// <inheritdoc />
-		public GameObject AddLayer(int layer)
-		{
-			for(int i = _layers.Count; i <= layer; i++)
+			_uiParent = new GameObject("Ui").transform;
+			_loadingSpinnerType = configs.LoadingSpinnerType;
+
+			GameObject.DontDestroyOnLoad(_uiParent.gameObject);
+
+			if (_loadingSpinnerType != null)
 			{
-				var newObj = new GameObject($"Layer {i.ToString()}");
-				
-				newObj.transform.position = Vector3.zero;
-				_layers.Add(newObj);
+				_ = LoadUiAsync(_loadingSpinnerType);
 			}
-
-			return _layers[layer];
-		}
-
-		/// <inheritdoc />
-		public GameObject GetLayer(int layer)
-		{
-			return _layers[layer];
 		}
 
 		/// <inheritdoc />
@@ -66,31 +70,38 @@ namespace GameLovers.UiService
 		{
 			if (_uiConfigs.ContainsKey(config.UiType))
 			{
-				throw new ArgumentException($"The UiConfig {config.AddressableAddress} was already added");
+				Debug.LogWarning($"The UiConfig {config.AddressableAddress} was already added");
+				return;
 			}
 
 			_uiConfigs.Add(config.UiType, config);
 		}
 
 		/// <inheritdoc />
-		public void AddUi<T>(T uiPresenter, int layer, bool openAfter = false) where T : UiPresenter
+		public void AddUiSet(UiSetConfig uiSet)
 		{
-			var type = uiPresenter.GetType().UnderlyingSystemType;
-			
-			if (HasUiPresenter(type))
+			if (_uiSets.ContainsKey(uiSet.SetId))
 			{
-				throw new ArgumentException($"The Ui {type} was already added");
+				Debug.LogWarning($"The Ui Configuration with the id {uiSet.SetId.ToString()} was already added");
+				return;
 			}
-			
-			var reference = new UiReference
+
+			_uiSets.Add(uiSet.SetId, uiSet);
+		}
+
+		/// <inheritdoc />
+		public void AddUi<T>(T ui, int layer, bool openAfter = false) where T : UiPresenter
+		{
+			var type = ui.GetType().UnderlyingSystemType;
+
+			if (_uiPresenters.ContainsKey(type))
 			{
-				UiType = type,
-				Layer = layer,
-				Presenter = uiPresenter
-			};
-			
-			_uiViews.Add(reference.UiType, reference);
-			uiPresenter.Init(this);
+				Debug.LogWarning($"The Ui {type} was already added");
+				return;
+			}
+
+			_uiPresenters.Add(type, ui);
+			ui.Init(this);
 
 			if (openAfter)
 			{
@@ -99,39 +110,32 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public T RemoveUi<T>() where T : UiPresenter
+		public bool RemoveUi(Type type)
 		{
-			return RemoveUi(typeof(T)) as T;
-		}
-
-		/// <inheritdoc />
-		public UiPresenter RemoveUi(Type type)
-		{
-			if (!_uiViews.TryGetValue(type, out UiReference reference))
-			{
-				throw new KeyNotFoundException($"The Ui {type} is not present to be removed");
-			}
-			
-			_uiViews.Remove(type);
 			_visibleUiList.Remove(type);
-
-			return reference.Presenter;
+			
+			return _uiPresenters.Remove(type);
 		}
 
 		/// <inheritdoc />
-		public T RemoveUi<T>(T uiPresenter) where T : UiPresenter
+		public List<UiPresenter> RemoveUiSet(int setId)
 		{
-			RemoveUi(uiPresenter.GetType().UnderlyingSystemType);
-			
-			return uiPresenter;
-		}
+			var set = _uiSets[setId];
+			var list = new List<UiPresenter>();
 
-		/// <inheritdoc />
-		public async Task<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter
-		{
-			var uiPresenter = await LoadUiAsync(typeof(T), openAfter);
-			
-			return uiPresenter as T;
+			foreach (var type in set.UiConfigsType)
+			{
+				if (!_uiPresenters.TryGetValue(type, out var ui))
+				{
+					continue;
+				}
+
+				RemoveUi(type);
+
+				list.Add(ui);
+			}
+
+			return list;
 		}
 
 		/// <inheritdoc />
@@ -142,79 +146,77 @@ namespace GameLovers.UiService
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 
-			if (HasUiPresenter(type))
+			if (_uiPresenters.TryGetValue(type, out var ui))
 			{
-				var ui = GetUi(type);
-				
+				Debug.LogWarning($"The Ui {type} was already loaded");
 				ui.gameObject.SetActive(openAfter);
 
 				return ui;
 			}
 
 			var layer = AddLayer(config.Layer);
-			var gameObject = await _assetLoader.InstantiatePrefabAsync(config.AddressableAddress, layer.transform, false);
-			
-			if (HasUiPresenter(type))
+			var gameObject = await _assetLoader.InstantiatePrefab(config, layer.transform);
+
+			// Double check if the same UiPresenter was already loaded. This can happen if the coder spam calls LoadUiAsync
+			if (_uiPresenters.TryGetValue(type, out var uiDouble))
 			{
-				var ui = GetUi(type);
-				
 				_assetLoader.UnloadAsset(gameObject);
-				ui.gameObject.SetActive(openAfter);
+				uiDouble.gameObject.SetActive(openAfter);
 
-				return ui;
+				return uiDouble;
 			}
-			
-			var uiPresenter = gameObject.GetComponent<UiPresenter>();
-			
-			gameObject.SetActive(false);
 
+			var uiPresenter = gameObject.GetComponent<UiPresenter>();
+
+			gameObject.SetActive(false);
 			AddUi(uiPresenter, config.Layer, openAfter);
 
 			return uiPresenter;
 		}
 
 		/// <inheritdoc />
-		public void UnloadUi<T>() where T : UiPresenter
+		public Task<Task<UiPresenter>>[] LoadUiSetAsync(int setId)
 		{
-			UnloadUi(typeof(T));
+			var uiTasks = new List<Task<UiPresenter>>();
+
+			if (_uiSets.TryGetValue(setId, out var set))
+			{
+				foreach (var type in set.UiConfigsType)
+				{
+					if (_uiPresenters.ContainsKey(type))
+					{
+						continue;
+					}
+
+					uiTasks.Add(LoadUiAsync(type));
+				}
+			}
+
+			return Interleaved(uiTasks);
 		}
 
 		/// <inheritdoc />
 		public void UnloadUi(Type type)
 		{
-			var gameObject = RemoveUi(type).gameObject;
-			
-			_assetLoader.UnloadAsset(gameObject);
+			var ui = _uiPresenters[type];
+
+			RemoveUi(type);
+
+			_assetLoader.UnloadAsset(ui.gameObject);
 		}
 
 		/// <inheritdoc />
-		public void UnloadUi<T>(T uiPresenter) where T : UiPresenter
+		public void UnloadUiSet(int setId)
 		{
-			UnloadUi(uiPresenter.GetType().UnderlyingSystemType);
-		}
+			var set = _uiSets[setId];
 
-		/// <inheritdoc />
-		public bool HasUiPresenter<T>() where T : UiPresenter
-		{
-			return HasUiPresenter(typeof(T));
-		}
-
-		/// <inheritdoc />
-		public bool HasUiPresenter(Type type)
-		{
-			return _uiViews.ContainsKey(type);
-		}
-
-		/// <inheritdoc />
-		public T GetUi<T>() where T : UiPresenter
-		{
-			return GetUi(typeof(T)) as T;
-		}
-
-		/// <inheritdoc />
-		public UiPresenter GetUi(Type type)
-		{
-			return GetReference(type).Presenter;
+			foreach (var type in set.UiConfigsType)
+			{
+				if (_uiPresenters.ContainsKey(type))
+				{
+					UnloadUi(type);
+				}
+			}
 		}
 
 		/// <inheritdoc />
@@ -224,82 +226,38 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public T OpenUi<T>(bool openedException = false) where T : UiPresenter
+		public async Task<UiPresenter> OpenUiAsync(Type type)
 		{
-			return OpenUi(typeof(T), openedException) as T;
+			var ui = await GetOrLoadUiAsync(type);
+
+			OpenUi(type);
+
+			return ui;
 		}
 
 		/// <inheritdoc />
-		public UiPresenter OpenUi(Type type, bool openedException = false)
+		public async Task<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct
 		{
-			var ui = GetUi(type);
-			
+			var ui = await GetOrLoadUiAsync(type);
+			var uiPresenterData = ui as UiPresenterData<TData>;
+
+			uiPresenterData.InternalSetData(initialData);
+			OpenUi(type);
+
+			return ui;
+		}
+
+		/// <inheritdoc />
+		public void CloseUi(Type type, bool destroy = false)
+		{
 			if (!_visibleUiList.Contains(type))
 			{
-				ui.InternalOpen();
-				_visibleUiList.Add(type);
-			}
-			else if(openedException)
-			{
-				throw new InvalidOperationException($"Is trying to open the {type.Name} ui but is already open");
-			}
-			
-			return ui;
-		}
-
-		/// <inheritdoc />
-		public T OpenUi<T, TData>(TData initialData, bool openedException = false) 
-			where T : class, IUiPresenterData 
-			where TData : struct
-		{
-			return OpenUi(typeof(T), initialData, openedException) as T;
-		}
-
-		/// <inheritdoc />
-		public UiPresenter OpenUi<TData>(Type type, TData initialData, bool openedException = false) where TData : struct
-		{
-			var uiPresenterData = GetUi(type) as UiPresenterData<TData>;
-
-			if (uiPresenterData == null)
-			{
-				throw new ArgumentException($"The UiPresenter {type} is not of a {nameof(UiPresenterData<TData>)}");
-			}
-			
-			uiPresenterData.InternalSetData(initialData);
-
-			return OpenUi(type, openedException);
-		}
-
-		/// <inheritdoc />
-		public T CloseUi<T>(bool closedException = false) where T : UiPresenter
-		{
-			return CloseUi(typeof(T)) as T;
-		}
-
-		/// <inheritdoc />
-		public UiPresenter CloseUi(Type type, bool closedException = false)
-		{
-			var ui = GetUi(type);
-			
-			if (_visibleUiList.Contains(type))
-			{
-				_visibleUiList.Remove(type);
-				ui.InternalClose();
-			}
-			else if(closedException)
-			{
-				throw new InvalidOperationException($"Is trying to close the {type.Name} ui but is not open");
+				Debug.LogWarning($"Is trying to close the {type.Name} ui but is not open");
+				return;
 			}
 
-			return ui;
-		}
-
-		/// <inheritdoc />
-		public T CloseUi<T>(T uiPresenter, bool closedException = false) where T : UiPresenter
-		{
-			CloseUi(uiPresenter.GetType().UnderlyingSystemType, closedException);
-
-			return uiPresenter;
+			_visibleUiList.Remove(type);
+			_uiPresenters[type].InternalClose(destroy);
 		}
 
 		/// <inheritdoc />
@@ -307,27 +265,11 @@ namespace GameLovers.UiService
 		{
 			for (int i = 0; i < _visibleUiList.Count; i++)
 			{
-				GetUi(_visibleUiList[i]).InternalClose();
+				_uiPresenters[_visibleUiList[i]].InternalClose(false);
 				_visibleUiList.Remove(_visibleUiList[i]);
 			}
-			
-			_visibleUiList.Clear();
-		}
 
-		/// <inheritdoc />
-		public void CloseUiAndAllInFront<T>(params int[] excludeLayers) where T : UiPresenter
-		{
-			var layers = new List<int>(excludeLayers);
-			
-			for (int i = GetReference(typeof(T)).Layer; i <= _layers.Count; i++)
-			{
-				if (layers.Contains(i))
-				{
-					continue;
-				}
-				
-				CloseAllUi(i);
-			}
+			_visibleUiList.Clear();
 		}
 
 		/// <inheritdoc />
@@ -335,175 +277,98 @@ namespace GameLovers.UiService
 		{
 			for (int i = 0; i < _visibleUiList.Count; i++)
 			{
-				var reference = GetReference(_visibleUiList[i]);
-				if (reference.Layer == layer)
+				var type = _visibleUiList[i];
+
+				if (_uiConfigs[type].Layer == layer)
 				{
-					reference.Presenter.InternalClose();
-					_visibleUiList.Remove(reference.UiType);
+					_uiPresenters[type].InternalClose(false);
+					_visibleUiList.Remove(type);
 				}
 			}
 		}
 
 		/// <inheritdoc />
-		public void AddUiSet(UiSetConfig uiSet)
+		public void CloseAllUiSet(int setId)
 		{
-			if (_uiSets.ContainsKey(uiSet.SetId))
+			var set = _uiSets[setId];
+
+			foreach (var type in set.UiConfigsType)
 			{
-				throw new ArgumentException($"The Ui Configuration with the id {uiSet.SetId.ToString()} was already added");
-			}
-			
-			_uiSets.Add(uiSet.SetId, uiSet);
-		}
-
-		/// <inheritdoc />
-		public List<UiPresenter> RemoveUiPresentersFromSet(int setId)
-		{
-			var set = GetUiSet(setId);
-			var list = new List<UiPresenter>();
-
-			for (int i = 0; i < set.UiConfigsType.Count; i++)
-			{
-				if (!HasUiPresenter(set.UiConfigsType[i]))
-				{
-					continue;
-				}
-				
-				list.Add(RemoveUi(set.UiConfigsType[i]));
-			}
-
-			return list;
-		}
-
-		/// <inheritdoc />
-		public Task<Task<UiPresenter>>[] LoadUiSetAsync(int setId)
-		{
-			var set = GetUiSet(setId);
-			var uiTasks = new List<Task<UiPresenter>>();
-
-			for (int i = 0; i < set.UiConfigsType.Count; i++)
-			{
-				if (HasUiPresenter(set.UiConfigsType[i]))
-				{
-					continue;
-				}
-				
-				uiTasks.Add(LoadUiAsync(set.UiConfigsType[i]));
-			}
-
-			return Interleaved(uiTasks);
-		}
-
-		/// <inheritdoc />
-		public void UnloadUiSet(int setId)
-		{
-			var set = GetUiSet(setId);
-
-			for (var i = 0; i < set.UiConfigsType.Count; i++)
-			{
-				if (HasUiPresenter(set.UiConfigsType[i]))
-				{
-					UnloadUi(set.UiConfigsType[i]);
-				}
+				CloseUi(type);
 			}
 		}
 
-		/// <inheritdoc />
-		public bool HasUiSet(int setId)
+		private GameObject AddLayer(int layer)
 		{
-			return _uiSets.ContainsKey(setId);
+			if (_layers.ContainsKey(layer)) return _layers[layer];
+
+			var newObj = new GameObject($"Layer {layer.ToString()}");
+
+			newObj.transform.position = Vector3.zero;
+
+			newObj.transform.SetParent(_uiParent);
+			_layers.Add(layer, newObj);
+
+			return _layers[layer];
 		}
 
-		/// <inheritdoc />
-		public bool HasAllUiPresentersInSet(int setId)
+		private void OpenUi(Type type)
 		{
-			var set = GetUiSet(setId);
-
-			for (var i = 0; i < set.UiConfigsType.Count; i++)
+			if (_visibleUiList.Contains(type))
 			{
-				if (!HasUiPresenter(set.UiConfigsType[i]))
-				{
-					return false;
-				}
+				Debug.LogWarning($"Is trying to open the {type.Name} ui but is already open");
+				return;
 			}
 
-			return true;
+			_uiPresenters[type].InternalOpen();
+			_visibleUiList.Add(type);
 		}
 
-		/// <inheritdoc />
-		public UiSetConfig GetUiSet(int setId)
+		private async Task<UiPresenter> GetOrLoadUiAsync(Type type)
 		{
-			if (!_uiSets.TryGetValue(setId, out UiSetConfig set))
+			if (!_uiPresenters.TryGetValue(type, out var ui))
 			{
-				throw new KeyNotFoundException($"The UiSet with the id {setId.ToString()} was not added to the service. Call {nameof(AddUiSet)} first");
+				OpenLoadingSpinner();
+				await LoadUiAsync(type);
+				CloseLoadingSpinner();
 			}
 
-			return set;
+			return ui;
 		}
 
-		/// <inheritdoc />
-		public void OpenUiSet(int setId, bool closeVisibleUi)
+		private void OpenLoadingSpinner()
 		{
-			var set = GetUiSet(setId);
-
-			if (closeVisibleUi)
+			if (_loadingSpinnerType == null)
 			{
-				var list = new List<Type>(set.UiConfigsType);
-				for (var i = 0; i < _visibleUiList.Count; i++)
-				{
-					if (list.Contains(_visibleUiList[i]))
-					{
-						continue;
-					}
-
-					CloseUi(_visibleUiList[i]);
-				}
+				return;
 			}
 
-			for (var i = 0; i < set.UiConfigsType.Count; i++)
-			{
-				if (_visibleUiList.Contains(set.UiConfigsType[i]))
-				{
-					continue;
-				}
-				
-				OpenUi(set.UiConfigsType[i]);
-			}
+			OpenUi(_loadingSpinnerType);
 		}
 
-		/// <inheritdoc />
-		public void CloseUiSet(int setId)
+		private void CloseLoadingSpinner()
 		{
-			var set = GetUiSet(setId);
-			
-			for (var i = 0; i < set.UiConfigsType.Count; i++)
+			if (_loadingSpinnerType == null)
 			{
-				CloseUi(set.UiConfigsType[i]);
-			}
-		}
-
-		private UiReference GetReference(Type type)
-		{
-			if (!_uiViews.TryGetValue(type, out UiReference uiReference))
-			{
-				throw new KeyNotFoundException($"The Ui {type} was not added to the service. Call {nameof(AddUi)} or {nameof(LoadUiAsync)} first");
+				return;
 			}
 
-			return uiReference;
+			CloseUi(_loadingSpinnerType);
 		}
-		
+
 		private Task<Task<T>>[] Interleaved<T>(IEnumerable<Task<T>> tasks)
 		{
 			var inputTasks = tasks.ToList();
 			var buckets = new TaskCompletionSource<Task<T>>[inputTasks.Count];
 			var results = new Task<Task<T>>[buckets.Length];
 			var nextTaskIndex = -1;
-			
-			for (var i = 0; i < buckets.Length; i++) 
+
+			for (var i = 0; i < buckets.Length; i++)
 			{
 				buckets[i] = new TaskCompletionSource<Task<T>>();
 				results[i] = buckets[i].Task;
 			}
-			
+
 			foreach (var inputTask in inputTasks)
 			{
 				inputTask.ContinueWith(Continuation, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
@@ -516,13 +381,6 @@ namespace GameLovers.UiService
 			{
 				buckets[Interlocked.Increment(ref nextTaskIndex)].TrySetResult(completed);
 			}
-		}
-		
-		private struct UiReference
-		{
-			public Type UiType;
-			public int Layer;
-			public UiPresenter Presenter;
 		}
 	}
 }

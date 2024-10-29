@@ -1,0 +1,36 @@
+using UnityEngine;
+
+// ReSharper disable CheckNamespace
+
+namespace GameLovers.UiService
+{
+	/// <inheritdoc />
+	/// <remarks>
+	/// Allows this Presenter to have an intro and outro animation when opened and closed to provide feedback and joy for players.
+	/// </remarks>
+	public class AnimationDelayer : PresenterDelayerBase
+	{
+		[SerializeField] protected Animation _animation;
+		[SerializeField] protected AnimationClip _introAnimationClip;
+		[SerializeField] protected AnimationClip _outroAnimationClip;
+
+		/// <inheritdoc />
+		public override float OpenDelayInSeconds => _introAnimationClip.length * 1000;
+
+		/// <inheritdoc />
+		public override float CloseDelayInSeconds => _outroAnimationClip.length * 1000;
+
+		protected override void OnOpenStarted()
+		{
+			_animation.clip = _introAnimationClip;
+			_animation.Play();
+		}
+
+		protected override void OnCloseStarted()
+		{
+			_animation.clip = _outroAnimationClip;
+			_animation.Play();
+		}
+	}
+}
+	
