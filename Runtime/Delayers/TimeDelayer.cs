@@ -10,13 +10,13 @@ namespace GameLovers.UiService
 	/// </remarks>
 	public class TimeDelayer : PresenterDelayerBase
 	{
-		[SerializeField] protected float _openDelayInSeconds;
-		[SerializeField] protected float _closeDelayInSeconds;
+		[SerializeField, Range(0f, float.MaxValue)] protected float _openDelayInSeconds;
+		[SerializeField, Range(0f, float.MaxValue)] protected float _closeDelayInSeconds;
 
 		/// <inheritdoc />
 		public override float OpenDelayInSeconds => _openDelayInSeconds;
 
 		/// <inheritdoc />
-		public override float CloseDelayInSeconds => _openDelayInSeconds;
+		public override float CloseDelayInSeconds => _closeDelayInSeconds;
 	}
 }

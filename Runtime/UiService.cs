@@ -275,7 +275,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void CloseAllUi(int layer)
 		{
-			for (int i = 0; i < _visibleUiList.Count; i++)
+			for (int i = _visibleUiList.Count - 1; i >= 0; i--)
 			{
 				var type = _visibleUiList[i];
 

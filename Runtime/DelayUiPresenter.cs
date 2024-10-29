@@ -12,7 +12,7 @@ namespace GameLovers.UiService
 
 		private void OnValidate()
 		{
-			_delayer = _delayer ?? GetComponent<PresenterDelayerBase>();
+			_delayer = _delayer != null ? _delayer : GetComponent<PresenterDelayerBase>();
 
 			OnEditorValidate();
 		}

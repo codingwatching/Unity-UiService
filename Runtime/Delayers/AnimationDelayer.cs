@@ -8,6 +8,7 @@ namespace GameLovers.UiService
 	/// <remarks>
 	/// Allows this Presenter to have an intro and outro animation when opened and closed to provide feedback and joy for players.
 	/// </remarks>
+	[RequireComponent(typeof(Animation))]
 	public class AnimationDelayer : PresenterDelayerBase
 	{
 		[SerializeField] protected Animation _animation;
@@ -19,6 +20,11 @@ namespace GameLovers.UiService
 
 		/// <inheritdoc />
 		public override float CloseDelayInSeconds => _outroAnimationClip.length * 1000;
+
+		private void OnValidate()
+		{ 
+			_animation = _animation != null ? _animation : GetComponent<Animation>();
+		}
 
 		protected override void OnOpenStarted()
 		{
