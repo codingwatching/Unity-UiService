@@ -4,6 +4,22 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [0.8.0] - 2024-10-29
+
+- Added new *PresenterDelayerBase*, *AnimationDelayer* and *TimeDelayer* to support presenters that open/close with a delay
+- Added new *DelayUiPresenter* to interact with *PresenterDelayerBase* implementations and allow presenters to open/close with a delay
+- Improved performance of *UiService*
+
+***Changed**:
+- Removed *AnimatedUiPresenter*. Use the new *DelayUiPresenter* with one of the *PresenterDelayerBase* implementations
+- Removed *UiCloseActivePresenter*  and *UiCloseActivePresenterData*. Use the new *DelayUiPresenter* with one of the *PresenterDelayerBase* implementations
+- Removed the dependency of *UiPresenter* from Canvas. Allowing different structures of UI Unity project hierarchy to work with the *UiService*
+- Removed all Get and Has methods from *IUiService*. Replaced with IReadOnlyDictionaries for all the collections being requested from the service
+- Changed all OpenUi methods to be async. This guarantees the expected behaviour that will always load the Ui first before opening
+- Changed all CloseUi methods to be synchronous. Closing an Ui will now always be atomic. To get the close delay, you can request directly from the *DelayUiPresenter*
+- Changed *IUiAssetLoader* to unify the prefab instantiation into a single call. This simplefies the method so the caller doesn't have to worry about synchronous or async behaviour
+- Changed the *UiConfig* to know contain the information of the *UiPresenter* if is loaded sync or async
+
 ## [0.7.2] - 2021-05-09
 
 **Fixed**:
