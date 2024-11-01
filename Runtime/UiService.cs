@@ -19,6 +19,9 @@ namespace GameLovers.UiService
 		private readonly IDictionary<int, GameObject> _layers = new Dictionary<int, GameObject>();
 		private readonly IDictionary<Type, UiPresenter> _uiPresenters = new Dictionary<Type, UiPresenter>();
 
+		private Type _loadingSpinnerType;
+		private Transform _uiParent;
+
 		/// <inheritdoc />
 		public IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters => new Dictionary<Type, UiPresenter>(_uiPresenters);
 
@@ -28,8 +31,8 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public IReadOnlyDictionary<int, UiSetConfig> UiSets => new Dictionary<int, UiSetConfig>(_uiSets);
 
-		private Type _loadingSpinnerType;
-		private Transform _uiParent;
+		/// <inheritdoc />
+		public IReadOnlyList<Type> VisiblePresenters => new List<Type>(_visibleUiList);
 
 		public UiService() : this(new UiAssetLoader()) { }
 
@@ -63,6 +66,18 @@ namespace GameLovers.UiService
 			{
 				_ = LoadUiAsync(_loadingSpinnerType);
 			}
+		}
+
+		/// <inheritdoc />
+		public T GetUi<T>() where T : UiPresenter
+		{
+			return _uiPresenters[typeof(T)] as T;
+		}
+
+		/// <inheritdoc />
+		public bool IsVisible<T>() where T : UiPresenter
+		{
+			return _visibleUiList.Contains(typeof(T));
 		}
 
 		/// <inheritdoc />
@@ -217,12 +232,6 @@ namespace GameLovers.UiService
 					UnloadUi(type);
 				}
 			}
-		}
-
-		/// <inheritdoc />
-		public List<Type> GetAllVisibleUi()
-		{
-			return new List<Type>(_visibleUiList);
 		}
 
 		/// <inheritdoc />

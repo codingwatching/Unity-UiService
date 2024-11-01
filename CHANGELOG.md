@@ -4,6 +4,16 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+
+## [0.9.0] - 2024-11-01
+
+- Added *GetUi<T>* method to the *IUiService*. It requests the *UiPresenter* by directly using generic T
+- Added *IsVisible<T>* method to the *IUiService*. It requests the visibility state of *UiPresenter*
+- Added IReadOnlyList property *VisiblePresenters* to the *IUiService* to allow external entities to access the list of visible *UiPresenter*
+
+***Changed**:
+- Removed *GetAllVisibleUi()* method. Use *IsVisible<T>* method instead
+
 ## [0.8.0] - 2024-10-29
 
 - Added new *PresenterDelayerBase*, *AnimationDelayer* and *TimeDelayer* to support presenters that open/close with a delay
