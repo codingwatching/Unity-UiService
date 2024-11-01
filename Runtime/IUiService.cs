@@ -17,6 +17,11 @@ namespace GameLovers.UiService
 		/// Gets a read-only dictionary of the Presenters currently Loaded in memory by the UI service.
 		/// </summary>
 		IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters { get; }
+		
+		/// <summary>
+		/// Gets a read-only list of the Presenters currently currently visible and were opened by the UI service.
+		/// </summary>
+		IReadOnlyList<Type> VisiblePresenters { get; }
 
 		/// <summary>
 		/// Gets a read-only dictionary of the layers used by the UI service.
@@ -27,6 +32,23 @@ namespace GameLovers.UiService
 		/// Gets a read-only dictionary of the containers of UI, called 'Ui Set' maintained by the UI service.
 		/// </summary>
 		IReadOnlyDictionary<int, UiSetConfig> UiSets { get; }
+
+		/// <summary>
+		/// Requests the UI of given type <typeparamref name="T"/>
+		/// </summary>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given <typeparamref name="T"/>
+		/// </exception>
+		/// <typeparam name="T">The type of UI presenter requested.</typeparam>
+		/// <returns>The UI of type <typeparamref name="T"/> requested</returns>
+		T GetUi<T>() where T : UiPresenter;
+
+		/// <summary>
+		/// Requests the visible state of the given UI type <typeparamref name="T"/>.
+		/// </summary>
+		/// <typeparam name="T">The type of UI presenter to check if is visible or not.</typeparam>
+		/// <returns>True if the UI is visble, false otherwise</returns>
+		bool IsVisible<T>() where T : UiPresenter;
 
 		/// <summary>
 		/// Adds a UI configuration to the service.
@@ -140,12 +162,6 @@ namespace GameLovers.UiService
 		/// <param name="setId">The ID of the UI set to unload from.</param>
 		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI set with the specified ID.</exception>
 		void UnloadUiSet(int setId);
-
-		/// <summary>
-		/// Gets a list of all visible UI presenters.
-		/// </summary>
-		/// <returns>A list of types of visible UI presenters.</returns>
-		List<Type> GetAllVisibleUi();
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary.
