@@ -1,13 +1,15 @@
+using UnityEngine;
 using UnityEngine.UI;
 
 // ReSharper disable CheckNamespace
 
-namespace FirstLight.UiService
+namespace GameLovers.UiService
 {
 	/// <summary>
 	/// A concrete subclass of the Unity UI `Graphic` class that just skips drawing.
 	/// Useful for providing a raycast target without actually drawing anything.
 	/// </summary>
+    [RequireComponent(typeof(CanvasRenderer))]
 	public class NonDrawingView : Graphic
 	{
 		public override void SetMaterialDirty() { }

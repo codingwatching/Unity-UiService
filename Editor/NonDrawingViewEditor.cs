@@ -1,4 +1,4 @@
-using FirstLight.UiService;
+using GameLovers.UiService;
 using UnityEditor;
 using UnityEditor.UI;
 using UnityEngine;
