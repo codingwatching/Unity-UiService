@@ -4,6 +4,14 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [0.10.0] - 2024-11-13
+
+**New**:
+- Added *UniTask* dependency to enable WebGL platform support
+
+**Changed**:
+- Updated *IUiService* async methods to use *UniTask* instead of *Task* for better performance and WebGL compatibility
+
 ## [0.9.1] - 2024-11-04
 
 **Fixed**:
@@ -11,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.9.0] - 2024-11-01
 
+***New**:
 - Added *GetUi<T>* method to the *IUiService*. It requests the *UiPresenter* by directly using generic T
 - Added *IsVisible<T>* method to the *IUiService*. It requests the visibility state of *UiPresenter*
 - Added IReadOnlyList property *VisiblePresenters* to the *IUiService* to allow external entities to access the list of visible *UiPresenter*
@@ -20,6 +29,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.8.0] - 2024-10-29
 
+***New**:
 - Added new *PresenterDelayerBase*, *AnimationDelayer* and *TimeDelayer* to support presenters that open/close with a delay
 - Added new *DelayUiPresenter* to interact with *PresenterDelayerBase* implementations and allow presenters to open/close with a delay
 - Improved performance of *UiService*
@@ -41,6 +51,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.7.1] - 2021-05-03
 
+***New**:
 - Added the possibility for *SafeAreaHelpersView* to maintain the View in the same position if not placed outside of the safe area
 
 **Fixed**:
@@ -48,6 +59,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.7.0] - 2021-03-12
 
+***New**:
 - Added *NonDrawingView* to have an Image without a renderer to not add additional draw calls.
 - Added *SafeAreaHelperView* to add the possibility for the *RectTransform* to adjust himself to the screen notches
 - Added *AnimatedUiPresenter* to play animation on enter or closing
@@ -61,10 +73,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.6.1] - 2020-09-24
 
+**Fixed**:
 - Updated dependency packages
 
 ## [0.6.0] - 2020-09-24
 
+***New**:
 - Added the possibility for the *IUiService* to allow to open/close already opened/closed *UiPresenters*, and throw an exception if not. 
 - Added the visible property to UiPresenter of its current visual status Added *IUiServiceInit* to give a new contract interface for the *UiService" initialisation
 
@@ -75,6 +89,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.5.0] - 2020-07-13
 
+***New**:
 - Added *UiAssetLoader* to load Ui assets to memory
 
 **Changed**:
@@ -88,19 +103,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.3.2] - 2020-04-18
 
+**Changed**:
 - Moved interface *IUiService* to a separate file to improve the code readability
 
 ## [0.3.1] - 2020-02-15
 
+**Changed**:
 - Updated dependency packages
 
 ## [0.3.0] - 2020-02-11
 
+***New**:
 - Added new *UiPresenterData* class for the case where the *UiPresenter* needs to be initialized with a default data value
 - Added new *OnInitialize* method that is invoked after the *UiPresenter* is initialized
 
 ## [0.2.1] - 2020-02-09
 
+***New**:
 - Added the possibility to open the ui after adding or loading it to the *UiService*
 - Added the possibility to get the canvas reference object based on the given layer
 - Added the possibility to remove and unload the *UiPresenter* by only passing it's reference
@@ -110,6 +129,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.2.0] - 2020-01-19
 
+***New**:
 - Added easy selection of the *UiConfigs.asset* file. Just go to *Tools > Select UiConfigs.asset*. If the *UiConfigs.asset* does not exist, it will create a new one in the Assets folder
 - Added the protected *Close()* method to directly allow to close the *UiPresenter* from the *UiPresenter* object file without needing to call the *UiService*. Also now is possible to close an Ui in the service by referencing the object directly without needing to reference the object type by calling *CloseUi<T>(T presenter)*
 - Now the *UnloadUi* & *UnloadUiSet* properly unloads the ui from memory and removes it from the service
