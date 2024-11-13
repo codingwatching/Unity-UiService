@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -111,7 +112,7 @@ namespace GameLovers.UiService
 		/// <param name="openAfter">Whether to open the UI after loading.</param>
 		/// <returns>A task that completes with the loaded UI.</returns>
 		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI configuration for the specified type.</exception>
-		async Task<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter => (await LoadUiAsync(typeof(T), openAfter)) as T;
+		async UniTask<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter => (await LoadUiAsync(typeof(T), openAfter)) as T;
 
 		/// <summary>
 		/// Loads the UI of the specified type asynchronously.
@@ -122,7 +123,7 @@ namespace GameLovers.UiService
 		/// <param name="openAfter">Whether to open the UI after loading.</param>
 		/// <returns>A task that completes with the loaded UI.</returns>
 		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI configuration for the specified type.</exception>
-		Task<UiPresenter> LoadUiAsync(Type type, bool openAfter = false);
+		UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false);
 
 		/// <summary>
 		/// Loads all UI presenters from the specified UI set asynchronously.
@@ -132,7 +133,7 @@ namespace GameLovers.UiService
 		/// <param name="setId">The ID of the UI set to load from.</param>
 		/// <returns>An array of tasks that complete with each loaded UI.</returns>
 		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI set with the specified ID.</exception>
-		Task<Task<UiPresenter>>[] LoadUiSetAsync(int setId);
+		IList<UniTask<UiPresenter>> LoadUiSetAsync(int setId);
 
 		/// <summary>
 		/// Unloads the UI of the specified type.
@@ -168,14 +169,14 @@ namespace GameLovers.UiService
 		/// </summary>
 		/// <typeparam name="T">The type of UI presenter to open.</typeparam>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		async Task<T> OpenUiAsync<T>() where T : UiPresenter => (await OpenUiAsync(typeof(T))) as T;
+		async UniTask<T> OpenUiAsync<T>() where T : UiPresenter => (await OpenUiAsync(typeof(T))) as T;
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary.
 		/// </summary>
 		/// <param name="type">The type of UI presenter to open.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		Task<UiPresenter> OpenUiAsync(Type type);
+		UniTask<UiPresenter> OpenUiAsync(Type type);
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary, and sets its initial data.
@@ -184,7 +185,7 @@ namespace GameLovers.UiService
 		/// <typeparam name="TData">The type of initial data to set.</typeparam>
 		/// <param name="initialData">The initial data to set.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		async Task<T> OpenUiAsync<T, TData>(TData initialData) 
+		async UniTask<T> OpenUiAsync<T, TData>(TData initialData) 
 			where T : class, IUiPresenterData 
 			where TData : struct => await OpenUiAsync(typeof(T), initialData) as T;
 
@@ -194,7 +195,7 @@ namespace GameLovers.UiService
 		/// <param name="type">The type of UI presenter to open.</param>
 		/// <param name="initialData">The initial data to set.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		Task<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct;
+		UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct;
 
 		/// <summary>
 		/// Closes a UI presenter and optionally destroys its assets.

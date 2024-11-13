@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -154,7 +155,7 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public async Task<UiPresenter> LoadUiAsync(Type type, bool openAfter = false)
+		public async UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false)
 		{
 			if (!_uiConfigs.TryGetValue(type, out var config))
 			{
@@ -190,9 +191,9 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public Task<Task<UiPresenter>>[] LoadUiSetAsync(int setId)
+		public IList<UniTask<UiPresenter>> LoadUiSetAsync(int setId)
 		{
-			var uiTasks = new List<Task<UiPresenter>>();
+			var uiTasks = new List<UniTask<UiPresenter>>();
 
 			if (_uiSets.TryGetValue(setId, out var set))
 			{
@@ -207,7 +208,7 @@ namespace GameLovers.UiService
 				}
 			}
 
-			return Interleaved(uiTasks);
+			return uiTasks;
 		}
 
 		/// <inheritdoc />
@@ -235,7 +236,7 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public async Task<UiPresenter> OpenUiAsync(Type type)
+		public async UniTask<UiPresenter> OpenUiAsync(Type type)
 		{
 			var ui = await GetOrLoadUiAsync(type);
 
@@ -245,7 +246,7 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public async Task<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct
+		public async UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct
 		{
 			var ui = await GetOrLoadUiAsync(type);
 			var uiPresenterData = ui as UiPresenterData<TData>;
@@ -333,7 +334,7 @@ namespace GameLovers.UiService
 			_visibleUiList.Add(type);
 		}
 
-		private async Task<UiPresenter> GetOrLoadUiAsync(Type type)
+		private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type)
 		{
 			if (!_uiPresenters.TryGetValue(type, out var ui))
 			{
@@ -363,33 +364,6 @@ namespace GameLovers.UiService
 			}
 
 			CloseUi(_loadingSpinnerType);
-		}
-
-		private Task<Task<T>>[] Interleaved<T>(IEnumerable<Task<T>> tasks)
-		{
-			var inputTasks = tasks.ToList();
-			var buckets = new TaskCompletionSource<Task<T>>[inputTasks.Count];
-			var results = new Task<Task<T>>[buckets.Length];
-			var nextTaskIndex = -1;
-
-			for (var i = 0; i < buckets.Length; i++)
-			{
-				buckets[i] = new TaskCompletionSource<Task<T>>();
-				results[i] = buckets[i].Task;
-			}
-
-			foreach (var inputTask in inputTasks)
-			{
-				inputTask.ContinueWith(Continuation, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-			}
-
-			return results;
-
-			// Local function
-			void Continuation(Task<T> completed)
-			{
-				buckets[Interlocked.Increment(ref nextTaskIndex)].TrySetResult(completed);
-			}
 		}
 	}
 }

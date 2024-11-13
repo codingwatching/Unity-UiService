@@ -1,5 +1,4 @@
-using System.IO;
-using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -20,7 +19,7 @@ namespace GameLovers.UiService
 		/// <param name="config">The UI configuration to instantiate.</param>
 		/// <param name="parent">The parent transform to instantiate the prefab under.</param>
 		/// <returns>A task that completes with the instantiated prefab game object.</returns>
-		Task<GameObject> InstantiatePrefab(UiConfig config, Transform parent);
+		UniTask<GameObject> InstantiatePrefab(UiConfig config, Transform parent);
 
 		/// <summary>
 		/// Unloads the given <paramref name="asset"/> from the game memory
@@ -32,7 +31,7 @@ namespace GameLovers.UiService
 	public class UiAssetLoader : IUiAssetLoader
 	{
 		/// <inheritdoc />
-		public async Task<GameObject> InstantiatePrefab(UiConfig config, Transform parent)
+		public async UniTask<GameObject> InstantiatePrefab(UiConfig config, Transform parent)
 		{
 			var operation = Addressables.InstantiateAsync(config.AddressableAddress, new InstantiationParameters(parent, false));
 

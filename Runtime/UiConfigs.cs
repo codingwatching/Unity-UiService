@@ -23,7 +23,7 @@ namespace GameLovers.UiService
 	/// ScriptableObject tool to import the <seealso cref="UiConfig"/> & <seealso cref="UiSetConfig"/> to be used in the <see cref="IUiService"/>
 	/// </summary>
 	[CreateAssetMenu(fileName = "UiConfigs", menuName = "ScriptableObjects/Configs/UiConfigs")]
-	public class UiConfigs : ScriptableObject
+	public class UiConfigs : ScriptableObject//, IConfigsContainer<UiConfig>
 	{
 		[SerializeField] private string _loadingSpinnerType;
 		[SerializeField]
