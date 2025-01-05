@@ -86,7 +86,7 @@ namespace GameLovers.UiService
 	/// <remarks>
 	/// Extends the <see cref="UiPresenter"/> behaviour to hold data of type <typeparamref name="T"/>
 	/// </remarks>
-	public abstract class UiPresenterData<T> : UiPresenter, IUiPresenterData where T : struct
+	public abstract class UiPresenter<T> : UiPresenter, IUiPresenterData where T : struct
 	{
 		/// <summary>
 		/// The Ui data defined when opened via the <see cref="UiService"/>

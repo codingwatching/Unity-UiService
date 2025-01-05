@@ -4,6 +4,16 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [0.11.0] - 2025-01-05
+
+**New**:
+- Added two new static event calls to UiService that are triggered when the app changes resolution and another trigger when changes screen orientation
+- The new *UiServiceMonoComponent* was added to the project for internal purposes, in order to support Unity's loop or generic *GameObjects* dependency code (e.g. the screen resolution trigger change)
+- Added new *AdjustScreenSizeFitter* to extend the ui behaviour of Unity's *ContentSizeFitter* in order to allow the *LayoutElement* to fit between the *LayoutElement.minSize* & *LayoutElement.flexibleSize*, values defined in the Unity's inspector
+
+**Changed**:
+- Renamed *UiPresenterData<T>* to *UiPresenter<T>* to make it less verbose
+
 ## [0.10.0] - 2024-11-13
 
 **New**:

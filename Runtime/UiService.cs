@@ -1,10 +1,9 @@
 using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Events;
+using Object = UnityEngine.Object;
 
 // ReSharper disable CheckNamespace
 
@@ -13,6 +12,9 @@ namespace GameLovers.UiService
 	/// <inheritdoc />
 	public class UiService : IUiServiceInit
 	{
+		public static readonly UnityEvent<DeviceOrientation, DeviceOrientation> OnOrientationChanged = new ();
+		public static readonly UnityEvent<Vector2, Vector2> OnResolutionChanged = new ();
+		
 		private readonly IUiAssetLoader _assetLoader;
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
 		private readonly IList<Type> _visibleUiList = new List<Type>();
@@ -61,11 +63,12 @@ namespace GameLovers.UiService
 			_uiParent = new GameObject("Ui").transform;
 			_loadingSpinnerType = configs.LoadingSpinnerType;
 
-			GameObject.DontDestroyOnLoad(_uiParent.gameObject);
+			_uiParent.gameObject.AddComponent<UiServiceMonoComponent>();
+			Object.DontDestroyOnLoad(_uiParent.gameObject);
 
 			if (_loadingSpinnerType != null)
 			{
-				_ = LoadUiAsync(_loadingSpinnerType);
+				LoadUiAsync(_loadingSpinnerType).Forget();
 			}
 		}
 
@@ -249,9 +252,16 @@ namespace GameLovers.UiService
 		public async UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct
 		{
 			var ui = await GetOrLoadUiAsync(type);
-			var uiPresenterData = ui as UiPresenterData<TData>;
+			var uiPresenter = ui as UiPresenter<TData>;
+			
+			if (uiPresenter == null)
+			{
+				Debug.LogError($"The UiPresenter {type} is not a UiPresenter<TData> type you. " +
+				               $"Implement it to allow it to open with initial defined data");
+				return ui;
+			}
 
-			uiPresenterData.InternalSetData(initialData);
+			uiPresenter.InternalSetData(initialData);
 			OpenUi(type);
 
 			return ui;
