@@ -1,4 +1,4 @@
-using GameLovers.UiService;
+using GameLovers.UiService.Views;
 using UnityEditor;
 using UnityEditor.UI;
 using UnityEngine;

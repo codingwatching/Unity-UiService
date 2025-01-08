@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace GameLovers.UiService
+namespace GameLovers.UiService.Views
 { 
     /// <summary>
     /// Resizes a RectTransform to fit the size of its content.
@@ -15,7 +15,7 @@ namespace GameLovers.UiService
     [AddComponentMenu("Layout/Adjust Size Fitter", 141)]
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform), typeof(LayoutElement))]
-    public class AdjustScreenSizeFitter : UIBehaviour, ILayoutSelfController
+    public class AdjustScreenSizeFitterView : UIBehaviour, ILayoutSelfController
     {
         [SerializeField] private RectOffset _padding = new RectOffset();
         [SerializeField] private RectTransform _canvasTransform;
