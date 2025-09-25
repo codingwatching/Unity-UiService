@@ -4,10 +4,19 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [0.13.0] - 2025-09-25
+
+**New**:
+- Added *UiToolkitPresenter* script to allow UI Toolkit based UIs to work with the library
+
+**Changed**:
+- Updated *README* to reflect the project structure
+- Adjusted the Editor tools and *UiService* to process UI Toolkit based views
+
 ## [0.12.0] - 2025-01-08
 
 **New**:
-- Added *InteractableTextView* script to allow linking text code execution, e.g open URLs in the broser
+- Added *InteractableTextView* script to allow linking text code execution, e.g open URLs in the browser
 
 **Changed**:
 - Renamed *AdjustScreenSizeFitter* to *AdjustScreenSizeFitterView* to mark it as a View in the architecture conventions

@@ -6,6 +6,7 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditorInternal;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 // ReSharper disable once CheckNamespace
 
@@ -59,7 +60,7 @@ namespace GameLoversEditor.UiService
 			"All the Addressable addresses for every UiPresenter in the game.\n" +
 			"The second field is the layer where the UiPresenter should be shown. " +
 			"The higher the value, the closer is the UiPresenter to the camera.\n" +
-			"If the UiPresenter contains a Canvas in the root, the layer value is the same of the Canvas sorting order");
+			"If the UiPresenter contains a Canvas/UIDocument in the root, the layer value is the same of the UI sorting order");
 		private readonly GUIContent _uiSetConfigGuiContent = new GUIContent("Ui Set",
 			"All the Ui Sets in the game.\n" +
 			"A UiSet groups a list of UiConfigs and shows them all at the same time via the UiService.\n" +
@@ -171,13 +172,22 @@ namespace GameLoversEditor.UiService
 
 				_assetsPath.Add(assetList[i].AssetPath);
 
-				var canvas = uiPresenter.GetComponent<Canvas>();
+				var sortingOrder = -1;
+				if (uiPresenter.TryGetComponent<Canvas>(out var canvas))
+				{
+					sortingOrder = canvas.sortingOrder;
+				}
+				else if (uiPresenter.TryGetComponent<UIDocument>(out var document))
+				{
+					sortingOrder = (int) document.sortingOrder;
+				}
+				
 				var indexMatch = configsCache.FindIndex(configCheck => configCheck.AddressableAddress == assetAddress);
 				var type = uiPresenter.GetType();
 				var config = new UiConfig
 				{
 					AddressableAddress = assetList[i].address,
-					Layer = canvas == null ? 0 : canvas.sortingOrder,
+					Layer = sortingOrder < 0 ? 0 : sortingOrder,
 					UiType = type,
 					LoadSynchronously = Attribute.IsDefined(type, typeof(LoadSynchronouslyAttribute))
 
@@ -188,7 +198,7 @@ namespace GameLoversEditor.UiService
 					uiConfigsAddress.Add(config.AddressableAddress);
 					_uiConfigsType.Add(config.UiType.AssemblyQualifiedName);
 
-					config.Layer = canvas == null ? configsCache[indexMatch].Layer : config.Layer;
+					config.Layer = sortingOrder < 0 ? configsCache[indexMatch].Layer : config.Layer;
 				}
 
 				configs.Add(config);
@@ -267,12 +277,19 @@ namespace GameLoversEditor.UiService
 
 			layer.intValue = newLayer;
 
-			var canvas = AssetDatabase.LoadAssetAtPath<GameObject>(_assetsPath[index]).GetComponent<Canvas>();
-			if (canvas != null)
+			var ui = AssetDatabase.LoadAssetAtPath<GameObject>(_assetsPath[index]);
+			if (ui.TryGetComponent<Canvas>(out var canvas))
 			{
 				canvas.sortingOrder = newLayer;
 
 				EditorUtility.SetDirty(canvas);
+				AssetDatabase.SaveAssets();
+			}
+			else if (ui.TryGetComponent<UIDocument>(out var document))
+			{
+				document.sortingOrder = newLayer;
+
+				EditorUtility.SetDirty(document);
 				AssetDatabase.SaveAssets();
 			}
 

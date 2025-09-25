@@ -1,229 +1,656 @@
-# Package Starter Kit
+# GameLovers UI Service
 
-The purpose of this starter kit is to provide the data structure and development guidelines for new packages meant for the **Unity Package Manager (UPM)**.
+[![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity3d.com/get-unity/download)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-0.13.0-green.svg)](CHANGELOG.md)
 
-## Are you ready to become a package?
-The Package Manager is a work in progress for Unity. Because of that, your package needs to meet these criteria to become an official Unity package:
-- **Your code accesses public Unity C# APIs only.**
-- **Your code doesn't require security, obfuscation, or conditional access control.**
+A powerful and flexible UI management system for Unity that provides a robust abstraction layer for handling game UI with support for layers, async loading, and UI sets. This service streamlines UI development by managing the complete lifecycle of UI presenters, from loading and initialization to display and cleanup.
 
+## Table of Contents
 
-## Package structure
+- [Key Features](#key-features)
+- [System Requirements](#system-requirements)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Core Concepts](#core-concepts)
+  - [UI Presenter](#ui-presenter)
+  - [UI Layers](#ui-layers)
+  - [UI Sets](#ui-sets)
+  - [UI Configuration](#ui-configuration)
+- [API Documentation](#api-documentation)
+  - [Creating UI Presenters](#creating-ui-presenters)
+  - [Managing UI Lifecycle](#managing-ui-lifecycle)
+  - [Working with UI Sets](#working-with-ui-sets)
+  - [Async Operations](#async-operations)
+- [Advanced Features](#advanced-features)
+  - [Delayed UI Presenters](#delayed-ui-presenters)
+  - [UI Toolkit Integration](#ui-toolkit-integration)
+  - [Helper Views](#helper-views)
+- [Package Structure](#package-structure)
+- [Dependencies](#dependencies)
+- [Migration Guide](#migration-guide)
+- [Contributing](#contributing)
+- [Support](#support)
+- [License](#license)
 
-```none
+## Key Features
+
+- **🎭 UI Presenter Pattern** - Clean separation of UI logic with lifecycle management
+- **📚 Layer-based Organization** - Organize UI elements by depth layers
+- **🔄 Async Loading** - Load UI assets asynchronously with UniTask support
+- **📦 UI Sets** - Group related UI elements for batch operations
+- **💾 Memory Management** - Efficient loading/unloading of UI assets
+- **🎯 Type-safe API** - Generic methods for compile-time safety
+- **📱 Responsive Design** - Built-in support for safe areas and screen size adjustments
+- **🔧 Addressables Integration** - Seamless integration with Unity's Addressables system
+- **🎨 UI Toolkit Support** - Compatible with both uGUI and UI Toolkit
+
+## System Requirements
+
+- **Unity** 6000.0 or higher
+- **Addressables** 1.22.0 or higher
+- **UniTask** 2.5.10 or higher
+- **TextMeshPro** 3.0.9 or higher
+- **Git** (for installation via Package Manager)
+
+## Installation
+
+### Via Unity Package Manager (Recommended)
+
+1. Open Unity Package Manager (`Window` → `Package Manager`)
+2. Click the `+` button and select `Add package from git URL`
+3. Enter the following URL:
+   ```
+   https://github.com/CoderGamester/com.gamelovers.uiservice.git
+   ```
+
+### Via manifest.json
+
+Add the following line to your project's `Packages/manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "com.gamelovers.uiservice": "https://github.com/CoderGamester/com.gamelovers.uiservice.git"
+  }
+}
+```
+
+## Quick Start
+
+### 1. Create UI Configuration
+
+First, create a UI configuration asset:
+
+1. Right-click in Project View
+2. Navigate to `Create` → `ScriptableObjects` → `Configs` → `UiConfigs`
+3. Configure your UI presenters in the created asset
+
+### 2. Initialize the UI Service
+
+```csharp
+using UnityEngine;
+using GameLovers.UiService;
+
+public class GameInitializer : MonoBehaviour
+{
+    [SerializeField] private UiConfigs _uiConfigs;
+    private IUiServiceInit _uiService;
+    
+    void Start()
+    {
+        // Create and initialize the UI service
+        _uiService = new UiService();
+        _uiService.Init(_uiConfigs);
+    }
+}
+```
+
+### 3. Create Your First UI Presenter
+
+```csharp
+using UnityEngine;
+using GameLovers.UiService;
+
+public class MainMenuPresenter : UiPresenter
+{
+    [SerializeField] private Button _playButton;
+    [SerializeField] private Button _settingsButton;
+    
+    protected override void OnInitialized()
+    {
+        _playButton.onClick.AddListener(OnPlayClicked);
+        _settingsButton.onClick.AddListener(OnSettingsClicked);
+    }
+    
+    protected override void OnOpened()
+    {
+        Debug.Log("Main menu opened!");
+        // Perform opening animations or setup
+    }
+    
+    protected override void OnClosed()
+    {
+        Debug.Log("Main menu closed!");
+        // Cleanup or save state
+    }
+    
+    private void OnPlayClicked()
+    {
+        Close(destroy: false);
+        _uiService.OpenUiAsync<GameplayHudPresenter>();
+    }
+    
+    private async void OnSettingsClicked()
+    {
+        var settings = await _uiService.OpenUiAsync<SettingsPresenter>();
+        // Settings is now open and ready
+    }
+}
+```
+
+### 4. Open and Manage UI
+
+```csharp
+public class GameManager : MonoBehaviour
+{
+    private IUiService _uiService;
+    
+    async void Start()
+    {
+        // Open main menu
+        var mainMenu = await _uiService.OpenUiAsync<MainMenuPresenter>();
+        
+        // Check if a UI is visible
+        if (_uiService.IsVisible<MainMenuPresenter>())
+        {
+            Debug.Log("Main menu is currently visible");
+        }
+        
+        // Close specific UI
+        _uiService.CloseUi<MainMenuPresenter>();
+        
+        // Close all UI
+        _uiService.CloseAllUi();
+    }
+}
+```
+
+## Core Concepts
+
+### UI Presenter
+
+The `UiPresenter` is the base class for all UI elements in the system. It provides:
+
+- **Lifecycle callbacks** - `OnInitialized()`, `OnOpened()`, `OnClosed()`
+- **State management** - Track open/closed state
+- **Service integration** - Direct access to UI service
+
+#### Basic UI Presenter
+
+```csharp
+public class BasicPopup : UiPresenter
+{
+    protected override void OnInitialized()
+    {
+        // Called once when the presenter is first loaded
+        // Set up UI elements, subscribe to events
+    }
+    
+    protected override void OnOpened()
+    {
+        // Called every time the UI is shown
+        // Start animations, refresh data
+    }
+    
+    protected override void OnClosed()
+    {
+        // Called when the UI is hidden
+        // Stop animations, save state
+    }
+}
+```
+
+#### UI Presenter with Data
+
+For UI that needs initialization data:
+
+```csharp
+public struct PlayerProfileData
+{
+    public string PlayerName;
+    public int Level;
+    public Sprite Avatar;
+}
+
+public class PlayerProfilePresenter : UiPresenter<PlayerProfileData>
+{
+    [SerializeField] private Text _nameText;
+    [SerializeField] private Text _levelText;
+    [SerializeField] private Image _avatarImage;
+    
+    protected override void OnSetData()
+    {
+        // Called when data is set
+        _nameText.text = Data.PlayerName;
+        _levelText.text = $"Level {Data.Level}";
+        _avatarImage.sprite = Data.Avatar;
+    }
+}
+
+// Usage
+var profileData = new PlayerProfileData 
+{ 
+    PlayerName = "Hero", 
+    Level = 42,
+    Avatar = avatarSprite
+};
+
+await _uiService.OpenUiAsync<PlayerProfilePresenter, PlayerProfileData>(profileData);
+```
+
+### UI Layers
+
+UI elements are organized into layers, where higher layer numbers appear on top:
+
+```csharp
+// Configure layers in your UiConfigs asset
+// Layer 0: Background UI
+// Layer 1: Game HUD
+// Layer 2: Menus
+// Layer 3: Popups
+// Layer 4: System messages
+
+// Close all UI in a specific layer
+_uiService.CloseAllUi(layer: 2);
+```
+
+### UI Sets
+
+Group related UI elements for batch operations:
+
+```csharp
+// Define UI sets in your UiConfigs
+// Set 1: Main Menu Set (logo, menu, background)
+// Set 2: Gameplay Set (HUD, minimap, controls)
+// Set 3: Shop Set (shop window, inventory, currency display)
+
+// Load entire UI set
+var loadTasks = _uiService.LoadUiSetAsync(setId: 2);
+await UniTask.WhenAll(loadTasks);
+
+// Close entire UI set
+_uiService.CloseAllUiSet(setId: 2);
+
+// Unload UI set from memory
+_uiService.UnloadUiSet(setId: 2);
+```
+
+### UI Configuration
+
+Configure your UI in the `UiConfigs` ScriptableObject:
+
+1. **Type** - The presenter class type
+2. **Prefab Reference** - Addressable reference to the UI prefab
+3. **Layer** - Which layer the UI belongs to
+4. **Load Synchronously** - Whether to load synchronously (use sparingly)
+5. **UI Set ID** - Optional grouping ID
+
+## API Documentation
+
+### Creating UI Presenters
+
+#### Simple Presenter
+
+```csharp
+public class NotificationPresenter : UiPresenter
+{
+    [SerializeField] private TextMeshProUGUI _messageText;
+    [SerializeField] private float _displayDuration = 3f;
+    
+    public void SetMessage(string message)
+    {
+        _messageText.text = message;
+    }
+    
+    protected override void OnOpened()
+    {
+        // Auto-close after duration
+        StartCoroutine(AutoClose());
+    }
+    
+    private IEnumerator AutoClose()
+    {
+        yield return new WaitForSeconds(_displayDuration);
+        Close(destroy: false);
+    }
+}
+```
+
+#### Delayed UI Presenter
+
+For UI with opening/closing animations:
+
+```csharp
+public class AnimatedPopup : DelayUiPresenter
+{
+    [SerializeField] private Animator _animator;
+    [SerializeField] private float _openDuration = 0.5f;
+    [SerializeField] private float _closeDuration = 0.3f;
+    
+    protected override void ConfigureDelayers()
+    {
+        // Use animation-based delays
+        OpeningDelayer = new AnimationDelayer(_animator, "Open");
+        ClosingDelayer = new AnimationDelayer(_animator, "Close");
+        
+        // Or use time-based delays
+        // OpeningDelayer = new TimeDelayer(_openDuration);
+        // ClosingDelayer = new TimeDelayer(_closeDuration);
+    }
+    
+    protected override void OnOpened()
+    {
+        base.OnOpened();
+        // UI is fully open and animation complete
+    }
+}
+```
+
+### Managing UI Lifecycle
+
+#### Loading and Unloading
+
+```csharp
+// Load UI into memory without opening
+var ui = await _uiService.LoadUiAsync<InventoryPresenter>();
+
+// Load and immediately open
+var ui = await _uiService.LoadUiAsync<InventoryPresenter>(openAfter: true);
+
+// Check if loaded
+if (_uiService.LoadedPresenters.ContainsKey(typeof(InventoryPresenter)))
+{
+    // UI is loaded in memory
+}
+
+// Unload from memory
+_uiService.UnloadUi<InventoryPresenter>();
+```
+
+#### Opening and Closing
+
+```csharp
+// Open UI (loads if necessary)
+var shop = await _uiService.OpenUiAsync<ShopPresenter>();
+
+// Open with data
+var questData = new QuestData { QuestId = 101, Title = "Dragon Slayer" };
+await _uiService.OpenUiAsync<QuestPresenter, QuestData>(questData);
+
+// Close UI (keeps in memory)
+_uiService.CloseUi<ShopPresenter>();
+
+// Close and destroy
+_uiService.CloseUi<ShopPresenter>(destroy: true);
+
+// Get UI if loaded
+var hud = _uiService.GetUi<GameHudPresenter>();
+```
+
+### Working with UI Sets
+
+```csharp
+// Load all UI in a set
+var loadTasks = _uiService.LoadUiSetAsync(setId: 1);
+var presenters = await UniTask.WhenAll(loadTasks);
+
+// Add runtime UI to service
+var dynamicUi = Instantiate(uiPrefab);
+_uiService.AddUi(dynamicUi, layer: 3, openAfter: true);
+
+// Remove UI set and get removed presenters
+var removedPresenters = _uiService.RemoveUiSet(setId: 2);
+foreach (var presenter in removedPresenters)
+{
+    Destroy(presenter.gameObject);
+}
+```
+
+### Async Operations
+
+All async operations use UniTask for better performance and WebGL support:
+
+```csharp
+// Sequential loading
+var menu = await _uiService.OpenUiAsync<MainMenuPresenter>();
+var settings = await _uiService.OpenUiAsync<SettingsPresenter>();
+
+// Parallel loading
+var menuTask = _uiService.OpenUiAsync<MainMenuPresenter>();
+var hudTask = _uiService.OpenUiAsync<GameHudPresenter>();
+await UniTask.WhenAll(menuTask, hudTask);
+
+// With cancellation
+var cts = new CancellationTokenSource();
+try
+{
+    await _uiService.OpenUiAsync<LoadingPresenter>()
+        .AttachExternalCancellation(cts.Token);
+}
+catch (OperationCanceledException)
+{
+    Debug.Log("UI loading was cancelled");
+}
+```
+
+## Advanced Features
+
+### Delayed UI Presenters
+
+The `DelayUiPresenter` class provides built-in support for opening/closing animations:
+
+```csharp
+public class SlideInPanel : DelayUiPresenter
+{
+    [SerializeField] private RectTransform _panel;
+    [SerializeField] private float _slideDuration = 0.5f;
+    
+    protected override void ConfigureDelayers()
+    {
+        OpeningDelayer = new TimeDelayer(_slideDuration);
+        ClosingDelayer = new TimeDelayer(_slideDuration);
+    }
+    
+    protected override void OnPreOpen()
+    {
+        // Position panel off-screen
+        _panel.anchoredPosition = new Vector2(-1000, 0);
+    }
+    
+    protected override void OnOpening()
+    {
+        // Animate panel sliding in
+        _panel.DOAnchorPosX(0, _slideDuration);
+    }
+    
+    protected override void OnClosing()
+    {
+        // Animate panel sliding out
+        _panel.DOAnchorPosX(-1000, _slideDuration);
+    }
+}
+```
+
+### UI Toolkit Integration
+
+For UI Toolkit (UI Elements) support:
+
+```csharp
+public class UIToolkitMenu : UiToolkitPresenter
+{
+    [SerializeField] private UIDocument _document;
+    
+    private Button _playButton;
+    private Label _titleLabel;
+    
+    protected override void OnInitialized()
+    {
+        var root = _document.rootVisualElement;
+        
+        _playButton = root.Q<Button>("play-button");
+        _titleLabel = root.Q<Label>("title-label");
+        
+        _playButton.clicked += OnPlayClicked;
+    }
+    
+    private void OnPlayClicked()
+    {
+        Close(destroy: false);
+    }
+}
+```
+
+### Helper Views
+
+The package includes several helper components:
+
+#### Safe Area Helper
+
+Automatically adjusts UI for device safe areas (notches, rounded corners):
+
+```csharp
+// Add SafeAreaHelperView component to UI panels that should respect safe areas
+[RequireComponent(typeof(RectTransform))]
+public class SafeAreaPanel : MonoBehaviour
+{
+    void Awake()
+    {
+        gameObject.AddComponent<SafeAreaHelperView>();
+    }
+}
+```
+
+#### Non-Drawing View
+
+Optimize UI performance by making non-visible graphics non-rendering:
+
+```csharp
+// Add to invisible UI elements that need to block raycasts
+gameObject.AddComponent<NonDrawingView>();
+```
+
+#### Screen Size Fitter
+
+Responsive UI that adjusts to screen size:
+
+```csharp
+// Add AdjustScreenSizeFitterView for responsive layouts
+var fitter = gameObject.AddComponent<AdjustScreenSizeFitterView>();
+// Configure min/max sizes in the inspector
+```
+
+#### Interactable Text View
+
+Make text elements interactive with clickable links:
+
+```csharp
+// Add InteractableTextView to TextMeshPro components
+var interactableText = gameObject.AddComponent<InteractableTextView>();
+// Supports <link> tags in TextMeshPro for clickable URLs
+```
+
+## Package Structure
+
+```
 <root>
-  ├── package.json
-  ├── README.md
-  ├── CHANGELOG.md
-  ├── Third Party Notices.md
-  ├── Editor
-  │   ├── Undefined.Uiservice.Editor.asmdef
-  │   └── EditorExample.cs
-  ├── Runtime
-  │   ├── Undefined.Uiservice.asmdef
-  │   └── RuntimeExample.cs
-  ├── Tests
-  │   ├── .tests.json
-  │   ├── Editor
-  │   │   ├── Undefined.Uiservice.Editor.Tests.asmdef
-  │   │   └── EditorExampleTest.cs
-  │   └── Runtime
-  │        ├── Undefined.Uiservice.Tests.asmdef
-  │        └── RuntimeExampleTest.cs
-  ├── Samples
-  │   └── Example
-  │       ├── .sample.json
-  │       └── SampleExample.cs
-  └── Documentation
-       ├── UiService.md
-       └── Images
+  ├── package.json          # Package manifest with dependencies and metadata
+  ├── README.md             # This documentation file
+  ├── CHANGELOG.md          # Version history and release notes
+  ├── LICENSE.md            # MIT license terms
+  ├── Runtime/              # Core runtime scripts for the UI service
+  │   ├── *.asmdef          # Assembly definition for runtime code
+  │   ├── Core Services     # Main UI service implementation and interfaces
+  │   ├── Presenters        # Base classes for UI presenters and UI Toolkit support
+  │   ├── Configuration     # ScriptableObject configs for UI setup
+  │   ├── Asset Loading     # Addressables integration and loading utilities
+  │   ├── Delayers/         # Animation and time-based delay implementations
+  │   └── Views/            # Helper components for responsive and optimized UI
+  └── Editor/               # Unity Editor extensions and custom inspectors
+      ├── *.asmdef          # Assembly definition for editor code
+      ├── Config Editors    # Custom inspectors for UI configuration assets
+      └── View Editors      # Custom editors for specialized UI components
 ```
 
-## Develop your package
-Package development works best within the Unity Editor.  Here's how to get started:
+## Dependencies
 
-1. Enter your package name. The name you choose should contain your default organization followed by the name you typed. For example: `Undefined.Uiservice`.
+This package requires:
 
-2. [Enter the information](#FillOutFields) for your package in the `package.json` file.
+- **[Unity Addressables](https://docs.unity3d.com/Packages/com.unity.addressables@latest)** (v2.6.0+) - For async asset loading
+- **[UniTask](https://github.com/Cysharp/UniTask)** (v2.5.10+) - For efficient async operations
 
-3. [Rename and update](#Asmdef) assembly definition files.
+Dependencies are automatically resolved when installing via Unity Package Manager.
 
-4. [Document](#Doc) your package.
+## Contributing
 
-5. [Add samples](#Populate) to your package (code & assets).
+We welcome contributions from the community! Here's how you can help:
 
-6. [Validate](#Valid) your package.
+### Reporting Issues
 
-7. [Add tests](#Tests) to your package.
+- Use the [GitHub Issues](https://github.com/CoderGamester/com.gamelovers.uiservice/issues) page
+- Include your Unity version, package version, and reproduction steps
+- Attach relevant code samples, error logs, or screenshots
 
-8. Update the `CHANGELOG.md` file. 
+### Development Setup
 
-    Every new feature or bug fix should have a trace in this file. For more details on the chosen changelog format, see [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
+1. Fork the repository on GitHub
+2. Clone your fork: `git clone https://github.com/yourusername/com.gamelovers.uiservice.git`
+3. Create a feature branch: `git checkout -b feature/amazing-feature`
+4. Make your changes with tests
+5. Commit: `git commit -m 'Add amazing feature'`
+6. Push: `git push origin feature/amazing-feature`
+7. Create a Pull Request
 
-9. Make sure your package [meets all legal requirements](#Legal).
+### Code Guidelines
 
-10. Publish your package.
+- Follow [C# Coding Conventions](https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions)
+- Add XML documentation to all public APIs
+- Include unit tests for new features
+- Maintain backward compatibility when possible
+- Update CHANGELOG.md for notable changes
 
+### Pull Request Process
 
+1. Ensure all tests pass
+2. Update documentation if needed
+3. Add changelog entry if applicable
+4. Request review from maintainers
 
-<a name="FillOutFields"></a>
-### Completing the package manifest
+## Support
 
-You can either modify the package manifest (`package.json`) file directly in the Inspector or by using an external editor. 
+### Documentation
 
-To use the Inspector, select the `package.json` file in the Project browser. The **Package UiService Manifest** page opens for editing.
+- **API Reference**: See inline XML documentation in code
+- **Examples**: Check sample implementations in this README
+- **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for version history
 
-Update these required attributes in the `package.json` file: 
+### Getting Help
 
-| **Attribute name:** | **Description:**                                             |
-| ------------------- | ------------------------------------------------------------ |
-| **name**            | The officially registered package name. This name must conform to the [Unity Package Manager naming convention](https://docs.unity3d.com/Manual/upm-manifestPkg.html#name), which uses reverse domain name notation. For example: <br />`"com.[YourCompanyName].[your-package-name]"` |
-| **displayName**     | A user-friendly name to appear in the Unity Editor (for example, in the Project Browser, the Package Manager window, etc.). For example: <br />`"Terrain Builder SDK"` <br/>__NOTE:__ Use a display name that will help users understand what your package is intended for. |
-| **version**         | The package version number (**'MAJOR.MINOR.PATCH"**). This value must respect [semantic versioning](http://semver.org/). For more information, see [Package version](https://docs.unity3d.com/Manual/upm-manifestPkg.html#pkg-ver) in the Unity User Manual. |
-| **unity**           | The lowest Unity version the package is compatible with. If omitted, the package is considered compatible with all Unity versions. <br /><br />The expected format is "**&lt;MAJOR&gt;.&lt;MINOR&gt;**" (for example, **2018.3**). |
-| **description**     | A brief description of the package. This is the text that appears in the [details view](upm-ui-details) of the Packages window. Any [UTF-8](https://en.wikipedia.org/wiki/UTF-8) character code is supported. This means that you can use special formatting character codes, such as line breaks (**\n**) and bullets (**\u25AA**). |
+- **Issues**: [Report bugs or request features](https://github.com/CoderGamester/com.gamelovers.uiservice/issues)
+- **Discussions**: [Ask questions and share ideas](https://github.com/CoderGamester/com.gamelovers.uiservice/discussions)
 
-Update the following recommended fields in file **package.json**:
+### Community
 
-| **Attribute name:** | **Description:**                                             |
-| ------------------- | ------------------------------------------------------------ |
-| **dependencies**    | A map of package dependencies. Keys are package names, and values are specific versions. They indicate other packages that this package depends on. For more information, see [Dependencies](https://docs.unity3d.com/Manual/upm-dependencies.html) in the Unity User Manual.<br /><br />**NOTE**: The Package Manager does not support range syntax, only **SemVer** versions. |
-| **keywords**        | An array of keywords used by the Package Manager search APIs. This helps users find relevant packages. |
+- Follow [@CoderGamester](https://github.com/CoderGamester) for updates
+- Star the repository if you find it useful
+- Share your projects using this package
 
+## License
 
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
 
-<a name="Asmdef"></a>
-### Updating the Assembly Definition files
+---
 
-You must associate scripts inside a package to an assembly definition file (.asmdef). Assembly definition files are the Unity equivalent to a C# project in the .NET ecosystem. You must set explicit references in the assembly definition file to other assemblies (whether in the same package or in external packages). See [Assembly Definitions](https://docs.unity3d.com/Manual/ScriptCompilationAssemblyDefinitionFiles.html) for more details.
+**Made with ❤️ for the Unity community**
 
-Use these conventions for naming and storing your assembly definition files to ensure that the compiled assembly filenames follow the [.NET Framework Design Guidelines](https://docs.microsoft.com/en-us/dotnet/standard/design-guidelines/):
-
-* Store Editor-specific code under a root editor assembly definition file:
-
-  `Editor/Undefined.Uiservice.Editor.asmdef`
-
-* Store runtime-specific code under a root runtime assembly definition file:
-
-  `Runtime/Undefined.Uiservice.asmdef`
-
-* Configure related test assemblies for your editor and runtime scripts:
-
-  `Tests/Editor/Undefined.Uiservice.Editor.Tests.asmdef`
-
-  `Tests/Runtime/Undefined.Uiservice.Tests.asmdef`
-
-To get a more general view of a recommended package folder layout, see [Package layout](https://docs.unity3d.com/Manual/cus-layout.html).
-
-
-
-<a name="Doc"></a>
-### Providing documentation
-
-Use the `Documentations~/UiService.md` documentation file to create preliminary, high-level documentation. This document should introduce users to the features and sample files included in your package.  Your package documentation files will be used to generate online and local docs, available from the Package Manager UI.
-
-**Document your public APIs**
-* All public APIs need to be documented with **XmlDoc**.
-* API documentation is generated from [XmlDoc tags](https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/xmldoc/xml-documentation-comments) included with all public APIs found in the package. See [Editor/EditorExample.cs](Editor/EditorExample.cs) for an example.
-
-
-
-
-<a name="Populate"></a>
-### Adding Assets to your package
-
-If your package contains a sample, rename the `Samples/Example` folder, and update the `.sample.json` file in it.
-
-In the case where your package contains multiple samples, you can make a copy of the `Samples/Example` folder for each sample, and update the `.sample.json` file accordingly.
-
-Similar to `.tests.json` file, there is a `"createSeparatePackage"` field in `.sample.json`. If set to true, the CI will create a separate package for the sample.
-
-Delete the `Samples` folder altogether if your package does not need samples.
-
-As of Unity release 2019.1, the Package Manager recognizes the `/Samples` directory in a package. Unity doesn't automatically import samples when a user adds the package to a Project. However, users can click a button in the details view of a package in the **Packages** window to optionally import samples into their `/Assets` directory.
-
-
-
-
-<a name="Valid"></a>
-### Validating your package
-
-Before you publish your package, you need to make sure that it passes all the necessary validation checks by using the Package Validation Suite extension (optional).
-
-Once you install the Validation Suite package, a **Validate** button appears in the details view of a package in the **Packages** window. To install the extension, follow these steps:
-
-1. Point your Project manifest to a staging registry by adding this line to the manifest: 
-    `"registry": "https://staging-packages.unity.com"`
-2. Install the **Package Validation Suite v0.3.0-preview.13** or above from the **Packages** window in Unity. Make sure the package scope is set to **All Packages**, and select **Show preview packages** from the **Advanced** menu.
-3. After installation, a **Validate** button appears in the **Packages** window. Click the button to run a series of tests, then click the **See Results** button for additional information:
-    * If it succeeds, a green bar with a **Success** message appears.
-    * If it fails, a red bar with a **Failed** message appears.
-
-**NOTE:** The validation suite is still in preview.
-
-
-
-
-<a name="Tests"></a>
-### Adding tests to your package
-
-All packages must contain tests.  Tests are essential for Unity to ensure that the package works as expected in different scenarios.
-
-**Editor tests**
-* Write all your Editor Tests in `Tests/Editor`
-
-**Playmode Tests**
-
-* Write all your Playmode Tests in `Tests/Runtime`.
-
-#### Separating the tests from the package
-
-You can create a separate package for the tests, which allows you to exclude a large number of tests and Assets from being published in your main package, while still making it easy to test it.
-
-Open the `Tests/.tests.json` file and set the **createSeparatePackage** attribute:
-
-| **Value to set:** | **Result:**                                                  |
-| ----------------- | ------------------------------------------------------------ |
-| **true**          | CI creates a separate package for these tests. At publish time, the Package Manager adds metadata to link the packages together. |
-| **false**         | Keep the tests as part of the published package.             |
-
-
-
-<a name="Legal"></a>
-### Meeting the legal requirements
-
-You can use the Third Party Notices.md file to make sure your package meets any legal requirements. For example, here is a sample license file from the Unity Timeline package:
-
-```
-Unity Timeline copyright © 2017-2019 Unity Technologies ApS
-
-Licensed under the Unity Companion License for Unity-dependent projects--see [Unity Companion License](http://www.unity3d.com/legal/licenses/Unity_Companion_License).
-
-Unless expressly provided otherwise, the Software under this license is made available strictly on an “AS IS” BASIS WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. Please review the license for details on these and other terms and conditions.
-
-```
-
-
-
-#### Third Party Notices
-
-If your package has third-party elements, you can include the licenses in a Third Party Notices.md file. You can include a **Component Name**, **License Type**, and **Provide License Details** section for each license you want to include. For example:
-
-```
-This package contains third-party software components governed by the license(s) indicated below:
-
-Component Name: Semver
-
-License Type: "MIT"
-
-[SemVer License](https://github.com/myusername/semver/blob/master/License.txt)
-
-Component Name: MyComponent
-
-License Type: "MyLicense"
-
-[MyComponent License](https://www.mycompany.com/licenses/License.txt)
-
-```
-
-**NOTE**: Any URLs you use should point to a location that contains the reproduced license and the copyright information (if applicable).
+*If this package helps your project, please consider giving it a ⭐ on GitHub!*
