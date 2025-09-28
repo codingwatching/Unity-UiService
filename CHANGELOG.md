@@ -4,6 +4,14 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [0.13.1] - 2025-09-28
+
+**New**:
+- Added *UiToolkitPresenter<Data>* script to allow UI Toolkit based UIs to work similar to *UiPresenter<Data>*
+
+**Changed**:
+- Refactored *UiToolkitPresenter* to also pass the root visual element to it's implemented class and properly assign the element OnValidate
+
 ## [0.13.0] - 2025-09-25
 
 **New**:
