@@ -252,16 +252,26 @@ namespace GameLovers.UiService
 		public async UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct
 		{
 			var ui = await GetOrLoadUiAsync(type);
-			var uiPresenter = ui as UiPresenter<TData>;
-			
-			if (uiPresenter == null)
+
+			if (ui is UiToolkitPresenter<TData>)
 			{
-				Debug.LogError($"The UiPresenter {type} is not a UiPresenter<TData> type you. " +
+				var uiPresenter = ui as UiToolkitPresenter<TData>;
+				
+				uiPresenter.InternalSetData(initialData);
+			}
+			else if (ui is UiPresenter<TData>)
+			{
+				var uiPresenter = ui as UiPresenter<TData>;
+				
+				uiPresenter.InternalSetData(initialData);
+			}
+			else
+			{
+				Debug.LogError($"The UiPresenter {type} is not a {nameof(UiPresenter<TData>)} nor {nameof(UiToolkitPresenter<TData>)} type. " +
 				               $"Implement it to allow it to open with initial defined data");
 				return ui;
 			}
-
-			uiPresenter.InternalSetData(initialData);
+			
 			OpenUi(type);
 
 			return ui;
