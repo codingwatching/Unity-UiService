@@ -16,10 +16,10 @@ namespace GameLovers.UiService
 	[SerializeField] protected AnimationClip _outroAnimationClip;
 
 	/// <inheritdoc />
-	public override float OpenDelayInSeconds => _introAnimationClip.length;
+	public override float OpenDelayInSeconds => _introAnimationClip?.length ?? 0f;
 
 	/// <inheritdoc />
-	public override float CloseDelayInSeconds => _outroAnimationClip.length;
+	public override float CloseDelayInSeconds => _outroAnimationClip?.length ?? 0f;
 
 		private void OnValidate()
 		{ 

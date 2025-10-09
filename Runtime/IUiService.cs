@@ -1,7 +1,7 @@
 using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Threading;
 using UnityEngine;
 
 // ReSharper disable CheckNamespace
@@ -110,9 +110,10 @@ namespace GameLovers.UiService
 		/// </summary>
 		/// <typeparam name="T">The type of UI to load.</typeparam>
 		/// <param name="openAfter">Whether to open the UI after loading.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes with the loaded UI.</returns>
 		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI configuration for the specified type.</exception>
-		async UniTask<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter => (await LoadUiAsync(typeof(T), openAfter)) as T;
+		async UniTask<T> LoadUiAsync<T>(bool openAfter = false, CancellationToken cancellationToken = default) where T : UiPresenter => (await LoadUiAsync(typeof(T), openAfter, cancellationToken)) as T;
 
 		/// <summary>
 		/// Loads the UI of the specified type asynchronously.
@@ -121,9 +122,10 @@ namespace GameLovers.UiService
 		/// </summary>
 		/// <param name="type">The type of UI to load.</param>
 		/// <param name="openAfter">Whether to open the UI after loading.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes with the loaded UI.</returns>
 		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI configuration for the specified type.</exception>
-		UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false);
+		UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false, CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// Loads all UI presenters from the specified UI set asynchronously.
@@ -168,15 +170,17 @@ namespace GameLovers.UiService
 		/// Opens a UI presenter asynchronously, loading its assets if necessary.
 		/// </summary>
 		/// <typeparam name="T">The type of UI presenter to open.</typeparam>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		async UniTask<T> OpenUiAsync<T>() where T : UiPresenter => (await OpenUiAsync(typeof(T))) as T;
+		async UniTask<T> OpenUiAsync<T>(CancellationToken cancellationToken = default) where T : UiPresenter => (await OpenUiAsync(typeof(T), cancellationToken)) as T;
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary.
 		/// </summary>
 		/// <param name="type">The type of UI presenter to open.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		UniTask<UiPresenter> OpenUiAsync(Type type);
+		UniTask<UiPresenter> OpenUiAsync(Type type, CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary, and sets its initial data.
@@ -184,18 +188,20 @@ namespace GameLovers.UiService
 		/// <typeparam name="T">The type of UI presenter to open.</typeparam>
 		/// <typeparam name="TData">The type of initial data to set.</typeparam>
 		/// <param name="initialData">The initial data to set.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		async UniTask<T> OpenUiAsync<T, TData>(TData initialData) 
+		async UniTask<T> OpenUiAsync<T, TData>(TData initialData, CancellationToken cancellationToken = default) 
 			where T : class, IUiPresenterData 
-			where TData : struct => await OpenUiAsync(typeof(T), initialData) as T;
+			where TData : struct => await OpenUiAsync(typeof(T), initialData, cancellationToken) as T;
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary, and sets its initial data.
 		/// </summary>
 		/// <param name="type">The type of UI presenter to open.</param>
 		/// <param name="initialData">The initial data to set.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct;
+		UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData, CancellationToken cancellationToken = default) where TData : struct;
 
 		/// <summary>
 		/// Closes a UI presenter and optionally destroys its assets.

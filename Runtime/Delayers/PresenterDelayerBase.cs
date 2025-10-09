@@ -1,5 +1,5 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
+using System;
 using UnityEngine;
 
 namespace GameLovers.UiService
@@ -19,21 +19,21 @@ namespace GameLovers.UiService
 		/// </summary>
 		float CloseDelayInSeconds { get; }
 
-		/// <summary>
-		/// Gets the Task of the current's delay process
-		/// </summary>
-		Task CurrentDelayTask { get; }
+	/// <summary>
+	/// Gets the UniTask of the current's delay process
+	/// </summary>
+	UniTask CurrentDelayTask { get; }
 	}
 
 	/// <inheritdoc />
 	public abstract class PresenterDelayerBase : MonoBehaviour, IPresenterDelayer
 	{
-		/// <inheritdoc />
-		public abstract float OpenDelayInSeconds { get; }
-		/// <inheritdoc />
-		public abstract float CloseDelayInSeconds { get; }
-		/// <inheritdoc />
-		public Task CurrentDelayTask { get; protected set; }
+	/// <inheritdoc />
+	public abstract float OpenDelayInSeconds { get; }
+	/// <inheritdoc />
+	public abstract float CloseDelayInSeconds { get; }
+	/// <inheritdoc />
+	public UniTask CurrentDelayTask { get; protected set; }
 
 		/// <summary>
 		/// Called when the presenter's opening delay starts.
@@ -45,33 +45,33 @@ namespace GameLovers.UiService
 		/// </summary>
 		protected virtual void OnCloseStarted() { }
 
-	internal async Task OpenWithDelay(Action onOpenedCompleted)
+internal async UniTask OpenWithDelay(Action onOpenedCompleted)
+{
+	OnOpenStarted();
+
+	CurrentDelayTask = UniTask.Delay(TimeSpan.FromSeconds(OpenDelayInSeconds));
+
+	await CurrentDelayTask;
+
+	if (gameObject != null)
 	{
-		OnOpenStarted();
-
-		CurrentDelayTask = Task.Delay(Mathf.RoundToInt(OpenDelayInSeconds * 1000));
-
-		await CurrentDelayTask;
-
-		if (gameObject != null)
-		{
-			onOpenedCompleted();
-		}
+		onOpenedCompleted();
 	}
+}
 
-	internal async Task CloseWithDelay(Action onCloseCompleted)
+internal async UniTask CloseWithDelay(Action onCloseCompleted)
+{
+	OnCloseStarted();
+
+	CurrentDelayTask = UniTask.Delay(TimeSpan.FromSeconds(CloseDelayInSeconds));
+
+	await CurrentDelayTask;
+
+	if (gameObject != null)
 	{
-		OnCloseStarted();
-
-		CurrentDelayTask = Task.Delay(Mathf.RoundToInt(CloseDelayInSeconds * 1000));
-
-		await CurrentDelayTask;
-
-		if (gameObject != null)
-		{
-			gameObject.SetActive(false);
-			onCloseCompleted();
-		}
+		gameObject.SetActive(false);
+		onCloseCompleted();
 	}
+}
 	}
 }

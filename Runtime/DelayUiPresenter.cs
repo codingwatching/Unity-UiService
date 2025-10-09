@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Cysharp.Threading.Tasks;
+using UnityEngine;
 
 namespace GameLovers.UiService
 {
@@ -20,13 +21,13 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		protected override void OnOpened()
 		{
-			_ = _delayer.OpenWithDelay(OnOpenedCompleted);
+			_delayer.OpenWithDelay(OnOpenedCompleted).Forget();
 		}
 
 		/// <inheritdoc />
 		protected override void OnClosed()
 		{
-			_ = _delayer.CloseWithDelay(OnClosedCompleted);
+			_delayer.CloseWithDelay(OnClosedCompleted).Forget();
 		}
 
 		/// <summary>
@@ -79,13 +80,13 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		protected override void OnOpened()
 		{
-			_ = _delayer.OpenWithDelay(OnOpenedCompleted);
+			_delayer.OpenWithDelay(OnOpenedCompleted).Forget();
 		}
 
 		/// <inheritdoc />
 		protected override void OnClosed()
 		{
-			_ = _delayer.CloseWithDelay(OnClosedCompleted);
+			_delayer.CloseWithDelay(OnClosedCompleted).Forget();
 		}
 
 		/// <summary>

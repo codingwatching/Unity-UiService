@@ -1,6 +1,8 @@
 using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Events;
 using Object = UnityEngine.Object;
@@ -22,26 +24,37 @@ namespace GameLovers.UiService
 		private readonly IDictionary<int, GameObject> _layers = new Dictionary<int, GameObject>();
 		private readonly IDictionary<Type, UiPresenter> _uiPresenters = new Dictionary<Type, UiPresenter>();
 
+		private readonly IReadOnlyDictionary<Type, UiPresenter> _loadedPresentersReadOnly;
+		private readonly IReadOnlyDictionary<int, GameObject> _layersReadOnly;
+		private readonly IReadOnlyDictionary<int, UiSetConfig> _uiSetsReadOnly;
+		private readonly IReadOnlyList<Type> _visiblePresentersReadOnly;
+
 		private Type _loadingSpinnerType;
 		private Transform _uiParent;
 
 		/// <inheritdoc />
-		public IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters => new Dictionary<Type, UiPresenter>(_uiPresenters);
+		public IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters => _loadedPresentersReadOnly;
 
 		/// <inheritdoc />
-		public IReadOnlyDictionary<int, GameObject> Layers => new Dictionary<int, GameObject>(_layers);
+		public IReadOnlyDictionary<int, GameObject> Layers => _layersReadOnly;
 
 		/// <inheritdoc />
-		public IReadOnlyDictionary<int, UiSetConfig> UiSets => new Dictionary<int, UiSetConfig>(_uiSets);
+		public IReadOnlyDictionary<int, UiSetConfig> UiSets => _uiSetsReadOnly;
 
 		/// <inheritdoc />
-		public IReadOnlyList<Type> VisiblePresenters => new List<Type>(_visibleUiList);
+		public IReadOnlyList<Type> VisiblePresenters => _visiblePresentersReadOnly;
 
 		public UiService() : this(new UiAssetLoader()) { }
 
 		public UiService(IUiAssetLoader assetLoader)
 		{
 			_assetLoader = assetLoader;
+			
+			// Initialize readonly wrappers to avoid allocations on property access
+			_loadedPresentersReadOnly = new ReadOnlyDictionary<Type, UiPresenter>(_uiPresenters);
+			_layersReadOnly = new ReadOnlyDictionary<int, GameObject>(_layers);
+			_uiSetsReadOnly = new ReadOnlyDictionary<int, UiSetConfig>(_uiSets);
+			_visiblePresentersReadOnly = new ReadOnlyCollection<Type>(_visibleUiList);
 		}
 
 		/// <inheritdoc />
@@ -139,7 +152,11 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public List<UiPresenter> RemoveUiSet(int setId)
 		{
-			var set = _uiSets[setId];
+			if (!_uiSets.TryGetValue(setId, out var set))
+			{
+				throw new KeyNotFoundException($"UI Set with id {setId} not found.");
+			}
+			
 			var list = new List<UiPresenter>();
 
 			foreach (var type in set.UiConfigsType)
@@ -158,7 +175,7 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public async UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false)
+		public async UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false, CancellationToken cancellationToken = default)
 		{
 			if (!_uiConfigs.TryGetValue(type, out var config))
 			{
@@ -174,7 +191,7 @@ namespace GameLovers.UiService
 			}
 
 			var layer = AddLayer(config.Layer);
-			var gameObject = await _assetLoader.InstantiatePrefab(config, layer.transform);
+			var gameObject = await _assetLoader.InstantiatePrefab(config, layer.transform, cancellationToken);
 
 			// Double check if the same UiPresenter was already loaded. This can happen if the coder spam calls LoadUiAsync
 			if (_uiPresenters.TryGetValue(type, out var uiDouble))
@@ -217,7 +234,10 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void UnloadUi(Type type)
 		{
-			var ui = _uiPresenters[type];
+			if (!_uiPresenters.TryGetValue(type, out var ui))
+			{
+				throw new KeyNotFoundException($"Cannot unload UI of type {type}. It is not loaded.");
+			}
 
 			RemoveUi(type);
 
@@ -239,9 +259,9 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public async UniTask<UiPresenter> OpenUiAsync(Type type)
+		public async UniTask<UiPresenter> OpenUiAsync(Type type, CancellationToken cancellationToken = default)
 		{
-			var ui = await GetOrLoadUiAsync(type);
+			var ui = await GetOrLoadUiAsync(type, cancellationToken);
 
 			OpenUi(type);
 
@@ -249,9 +269,9 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
-		public async UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct
+		public async UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData, CancellationToken cancellationToken = default) where TData : struct
 		{
-			var ui = await GetOrLoadUiAsync(type);
+			var ui = await GetOrLoadUiAsync(type, cancellationToken);
 
 			if (ui is UiToolkitPresenter<TData>)
 			{
@@ -268,7 +288,7 @@ namespace GameLovers.UiService
 			else
 			{
 				Debug.LogError($"The UiPresenter {type} is not a {nameof(UiPresenter<TData>)} nor {nameof(UiToolkitPresenter<TData>)} type. " +
-				               $"Implement it to allow it to open with initial defined data");
+							$"Implement it to allow it to open with initial defined data");
 				return ui;
 			}
 			
@@ -293,10 +313,9 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void CloseAllUi()
 		{
-			for (int i = 0; i < _visibleUiList.Count; i++)
+			foreach (var type in _visibleUiList)
 			{
-				_uiPresenters[_visibleUiList[i]].InternalClose(false);
-				_visibleUiList.Remove(_visibleUiList[i]);
+				_uiPresenters[type].InternalClose(false);
 			}
 
 			_visibleUiList.Clear();
@@ -354,17 +373,17 @@ namespace GameLovers.UiService
 			_visibleUiList.Add(type);
 		}
 
-	private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type)
-	{
-		if (!_uiPresenters.TryGetValue(type, out var ui))
+		private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type, CancellationToken cancellationToken = default)
 		{
-			OpenLoadingSpinner();
-			ui = await LoadUiAsync(type);
-			CloseLoadingSpinner();
-		}
+			if (!_uiPresenters.TryGetValue(type, out var ui))
+			{
+				OpenLoadingSpinner();
+				ui = await LoadUiAsync(type, false, cancellationToken);
+				CloseLoadingSpinner();
+			}
 
-		return ui;
-	}
+			return ui;
+		}
 
 		private void OpenLoadingSpinner()
 		{
