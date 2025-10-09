@@ -65,7 +65,7 @@ namespace GameLovers.UiService
 	/// </remarks>
 	/// <typeparam name="T">The type of data held by the presenter.</typeparam>
 	[RequireComponent(typeof(PresenterDelayerBase))]
-	public abstract class DelayUiPresenterData<T> : UiPresenter, IUiPresenterData where T : struct
+	public abstract class DelayUiPresenterData<T> : UiPresenter<T> where T : struct
 	{
 		[SerializeField] private PresenterDelayerBase _delayer;
 

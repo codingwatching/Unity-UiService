@@ -45,33 +45,33 @@ namespace GameLovers.UiService
 		/// </summary>
 		protected virtual void OnCloseStarted() { }
 
-		internal async Task OpenWithDelay(Action onOpenedCompleted)
+	internal async Task OpenWithDelay(Action onOpenedCompleted)
+	{
+		OnOpenStarted();
+
+		CurrentDelayTask = Task.Delay(Mathf.RoundToInt(OpenDelayInSeconds * 1000));
+
+		await CurrentDelayTask;
+
+		if (gameObject != null)
 		{
-			OnOpenStarted();
-
-			CurrentDelayTask = Task.Delay(Mathf.RoundToInt(OpenDelayInSeconds));
-
-			await CurrentDelayTask;
-
-			if (gameObject != null)
-			{
-				onOpenedCompleted();
-			}
+			onOpenedCompleted();
 		}
+	}
 
-		internal async Task CloseWithDelay(Action onCloseCompleted)
+	internal async Task CloseWithDelay(Action onCloseCompleted)
+	{
+		OnCloseStarted();
+
+		CurrentDelayTask = Task.Delay(Mathf.RoundToInt(CloseDelayInSeconds * 1000));
+
+		await CurrentDelayTask;
+
+		if (gameObject != null)
 		{
-			OnCloseStarted();
-
-			CurrentDelayTask = Task.Delay(Mathf.RoundToInt(OpenDelayInSeconds));
-
-			await CurrentDelayTask;
-
-			if (gameObject != null)
-			{
-				gameObject.SetActive(false);
-				onCloseCompleted();
-			}
+			gameObject.SetActive(false);
+			onCloseCompleted();
 		}
+	}
 	}
 }

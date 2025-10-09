@@ -354,17 +354,17 @@ namespace GameLovers.UiService
 			_visibleUiList.Add(type);
 		}
 
-		private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type)
+	private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type)
+	{
+		if (!_uiPresenters.TryGetValue(type, out var ui))
 		{
-			if (!_uiPresenters.TryGetValue(type, out var ui))
-			{
-				OpenLoadingSpinner();
-				await LoadUiAsync(type);
-				CloseLoadingSpinner();
-			}
-
-			return ui;
+			OpenLoadingSpinner();
+			ui = await LoadUiAsync(type);
+			CloseLoadingSpinner();
 		}
+
+		return ui;
+	}
 
 		private void OpenLoadingSpinner()
 		{
