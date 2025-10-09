@@ -591,6 +591,556 @@ This package requires:
 
 Dependencies are automatically resolved when installing via Unity Package Manager.
 
+---
+
+## Performance Optimization
+
+### Memory Management Best Practices
+
+#### When to Load vs. Preload UI
+
+**Load on Demand** (Lazy Loading):
+```csharp
+// Best for: Infrequently used UI, large asset sizes
+await _uiService.OpenUiAsync<SettingsMenu>();
+// Loads and opens in one call - UI loads when needed
+```
+
+**Preload** (Eager Loading):
+```csharp
+// Best for: Frequently used UI, critical path, avoid loading hitches
+await _uiService.LoadUiAsync<GameHud>();
+// Loads into memory but keeps hidden - ready to open instantly
+```
+
+**When to Use Each Strategy**:
+
+| Strategy | Use For | Pros | Cons |
+|----------|---------|------|------|
+| **On Demand** | Settings, shops, rare popups | Lower initial memory | Loading hitch when opened |
+| **Preload** | HUD, frequent dialogs | Instant display | Higher memory usage |
+| **Preload Sets** | Level-specific UI groups | Batch loading efficiency | Memory overhead |
+
+#### Unloading UI from Memory
+
+```csharp
+// Close but keep in memory (fast to reopen)
+_uiService.CloseUi<Shop>(destroy: false);
+
+// Close and unload from memory (free resources)
+_uiService.CloseUi<Shop>(destroy: true);
+// Or explicitly:
+_uiService.UnloadUi<Shop>();
+```
+
+**When to Destroy**:
+- ✅ Large UI assets (>5MB)
+- ✅ Level-specific UI when changing levels
+- ✅ One-time tutorial/onboarding screens
+- ❌ Frequently reopened UI (Settings, Pause Menu)
+- ❌ Small, lightweight presenters
+
+#### UI Sets for Efficient Batch Management
+
+```csharp
+// Define in UiConfigs: SetId 1 = Main Menu Set
+// Contains: MainMenu, Background, Logo, Buttons
+
+// Load entire menu system at once
+var tasks = _uiService.LoadUiSetAsync(setId: 1);
+await UniTask.WhenAll(tasks);
+
+// When done with menu (e.g., entering gameplay):
+_uiService.CloseAllUiSet(setId: 1);
+_uiService.UnloadUiSet(setId: 1); // Free all menu memory
+```
+
+**Recommended Set Organization**:
+- Set 0: Core/Persistent UI (always loaded)
+- Set 1-10: Scene-specific UI (load per scene)
+- Set 11-20: Feature-specific UI (shop, inventory, etc.)
+
+---
+
+### Performance Monitoring
+
+#### Detecting Memory Issues
+
+```csharp
+// Check what's currently loaded
+Debug.Log($"Loaded presenters: {_uiService.LoadedPresenters.Count}");
+foreach (var kvp in _uiService.LoadedPresenters)
+{
+    Debug.Log($"  - {kvp.Key.Name}");
+}
+
+// Monitor visible UI
+Debug.Log($"Visible presenters: {_uiService.VisiblePresenters.Count}");
+```
+
+#### Profiling UI Operations
+
+Use Unity Profiler to monitor:
+1. **Memory.Allocations** - Watch for GC spikes during `OpenUiAsync`
+2. **Memory.Total** - Track memory after `LoadUiAsync` / `UnloadUi`
+3. **Loading.AsyncLoad** - Identify slow-loading UI assets
+
+**Red Flags**:
+- More than 10 presenters loaded simultaneously
+- Loading same UI multiple times per second
+- Memory not decreasing after `UnloadUi`
+
+---
+
+### Optimization Tips
+
+#### 1. Avoid Opening Same UI Repeatedly
+
+```csharp
+// ❌ BAD - Opens new instance every frame
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.Escape))
+        _uiService.OpenUiAsync<PauseMenu>().Forget();
+}
+
+// ✅ GOOD - Check if already visible
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.Escape) && !_uiService.IsVisible<PauseMenu>())
+        _uiService.OpenUiAsync<PauseMenu>().Forget();
+}
+```
+
+#### 2. Use Parallel Loading for Multiple UI
+
+```csharp
+// ❌ SLOW - Sequential loading (3 seconds total if each takes 1s)
+await _uiService.OpenUiAsync<Hud>();
+await _uiService.OpenUiAsync<Minimap>();
+await _uiService.OpenUiAsync<Chat>();
+
+// ✅ FAST - Parallel loading (1 second total)
+await UniTask.WhenAll(
+    _uiService.OpenUiAsync<Hud>(),
+    _uiService.OpenUiAsync<Minimap>(),
+    _uiService.OpenUiAsync<Chat>()
+);
+```
+
+#### 3. Preload Critical UI During Loading Screen
+
+```csharp
+public async UniTask LoadLevel()
+{
+    // Show loading screen
+    await _uiService.OpenUiAsync<LoadingScreen>();
+    
+    // Preload level UI in parallel with level load
+    var uiTask = UniTask.WhenAll(
+        _uiService.LoadUiAsync<GameHud>(),
+        _uiService.LoadUiAsync<PauseMenu>(),
+        _uiService.LoadUiAsync<GameOverScreen>()
+    );
+    var levelTask = SceneManager.LoadSceneAsync("GameLevel").ToUniTask();
+    
+    await UniTask.WhenAll(uiTask, levelTask);
+    
+    // Hide loading screen
+    _uiService.CloseUi<LoadingScreen>();
+}
+```
+
+#### 4. Clean Up When Switching Scenes
+
+```csharp
+async void OnLevelComplete()
+{
+    // Close all gameplay UI
+    _uiService.CloseAllUi(layer: 1); // Gameplay layer
+    
+    // Unload gameplay UI set
+    _uiService.UnloadUiSet(setId: 2);
+    
+    // Load main menu
+    await _uiService.OpenUiAsync<LevelCompleteScreen>();
+}
+```
+
+#### 5. Optimize Delayed Presenters
+
+```csharp
+public class FastPopup : DelayUiPresenter
+{
+    protected override void ConfigureDelayers()
+    {
+        // Use short delays for snappy UX
+        OpeningDelayer = new TimeDelayer(0.2f);  // 200ms
+        ClosingDelayer = new TimeDelayer(0.15f); // 150ms
+    }
+}
+```
+
+**Animation Performance**:
+- Keep open/close animations under 0.5 seconds
+- Use `TimeDelayer` for simple fades (lighter than `AnimationDelayer`)
+- Disable `Animator` component when UI is closed
+
+---
+
+### WebGL Specific Considerations
+
+When building for WebGL, be extra mindful of memory:
+
+```csharp
+// WebGL has limited memory - be aggressive with unloading
+#if UNITY_WEBGL
+    const bool DESTROY_ON_CLOSE = true;
+#else
+    const bool DESTROY_ON_CLOSE = false;
+#endif
+
+_uiService.CloseUi<Shop>(destroy: DESTROY_ON_CLOSE);
+```
+
+---
+
+## Troubleshooting
+
+### Need Help Migrating?
+
+If you encounter issues during migration:
+1. Check the [CHANGELOG.md](CHANGELOG.md) for detailed version changes
+2. Review the [Troubleshooting](#troubleshooting) section below
+3. Open an [issue](https://github.com/CoderGamester/com.gamelovers.uiservice/issues) with your migration question
+
+### Common Issues and Solutions
+
+#### Issue: UI Doesn't Appear After Opening
+
+**Symptoms**: `OpenUiAsync` completes but UI is not visible
+
+**Possible Causes & Solutions**:
+
+1. **UI Layer is Behind Other UI**
+   ```csharp
+   // Check layer numbers - higher numbers appear on top
+   // In UiConfigs, ensure critical UI has high layer numbers
+   // Layer 0: Background
+   // Layer 5: Popups
+   ```
+
+2. **Canvas is Disabled**
+   ```csharp
+   // Check if parent canvas is active
+   var canvas = presenter.GetComponentInParent<Canvas>();
+   if (!canvas.gameObject.activeInHierarchy)
+       Debug.LogError("Parent canvas is disabled!");
+   ```
+
+3. **Already Opened**
+   ```csharp
+   // Service prevents opening already-visible UI
+   if (_uiService.IsVisible<MyPresenter>())
+   {
+       Debug.Log("UI is already open");
+   }
+   ```
+
+---
+
+#### Issue: Null Reference Exception on GetUi<T>()
+
+**Error**: `KeyNotFoundException` or `NullReferenceException`
+
+**Cause**: Trying to get UI that hasn't been loaded yet
+
+**Solution**:
+```csharp
+// ❌ BAD - Assumes UI is loaded
+var shop = _uiService.GetUi<Shop>();
+
+// ✅ GOOD - Check first
+if (_uiService.LoadedPresenters.ContainsKey(typeof(Shop)))
+{
+    var shop = _uiService.GetUi<Shop>();
+}
+
+// ✅ BETTER - Load if needed
+var shop = await _uiService.LoadUiAsync<Shop>();
+```
+
+---
+
+#### Issue: Data Not Showing in UiPresenter<TData>
+
+**Symptoms**: UI opens but data fields are empty/default
+
+**Possible Causes & Solutions**:
+
+1. **Not Using Generic Open Method**
+   ```csharp
+   // ❌ WRONG - Data not passed
+   await _uiService.OpenUiAsync<PlayerProfile>();
+   
+   // ✅ CORRECT - Use generic overload
+   var data = new PlayerData { Name = "Hero", Level = 10 };
+   await _uiService.OpenUiAsync<PlayerProfile, PlayerData>(data);
+   ```
+
+2. **OnSetData Not Implemented**
+   ```csharp
+   public class PlayerProfile : UiPresenter<PlayerData>
+   {
+       // ❌ MISSING - Override OnSetData
+       
+       // ✅ CORRECT
+       protected override void OnSetData()
+       {
+           nameText.text = Data.Name;
+           levelText.text = Data.Level.ToString();
+       }
+   }
+   ```
+
+3. **Wrong Base Class**
+   ```csharp
+   // ❌ WRONG - Missing <T> generic
+   public class PlayerProfile : UiPresenter
+   
+   // ✅ CORRECT
+   public class PlayerProfile : UiPresenter<PlayerData>
+   ```
+
+---
+
+#### Issue: Animations Not Playing
+
+**Symptoms**: `DelayUiPresenter` opens/closes instantly without animation
+
+**Possible Causes & Solutions**:
+
+1. **Delayers Not Configured**
+   ```csharp
+   public class AnimatedPopup : DelayUiPresenter
+   {
+       // ❌ MISSING - ConfigureDelayers not called
+       
+       // ✅ CORRECT
+       protected override void ConfigureDelayers()
+       {
+           OpeningDelayer = new AnimationDelayer(_animator, "Open");
+           ClosingDelayer = new AnimationDelayer(_animator, "Close");
+       }
+   }
+   ```
+
+2. **Animation Clip Not Assigned**
+   ```csharp
+   // Check if animator has the specified clip
+   // Ensure clip names match: "Open", "Close"
+   // Or use TimeDelayer if animations aren't ready:
+   OpeningDelayer = new TimeDelayer(0.5f);
+   ```
+
+3. **OnOpening/OnClosing Not Called**
+   ```csharp
+   protected override void OnOpening()
+   {
+       base.OnOpening(); // ⚠️ Important - calls delayer
+       // Your animation code here
+   }
+   ```
+
+---
+
+#### Issue: Memory Leak - UI Not Unloading
+
+**Symptoms**: Memory usage grows over time, UI count increases
+
+**Diagnosis**:
+```csharp
+// Add this to a debug UI
+void OnGUI()
+{
+    GUILayout.Label($"Loaded UI: {_uiService.LoadedPresenters.Count}");
+    foreach (var ui in _uiService.LoadedPresenters)
+    {
+        GUILayout.Label($"  - {ui.Key.Name}");
+    }
+}
+```
+
+**Solutions**:
+
+1. **Close With Destroy Flag**
+   ```csharp
+   // This closes but keeps in memory
+   _uiService.CloseUi<Shop>(destroy: false);
+   
+   // This properly unloads
+   _uiService.CloseUi<Shop>(destroy: true);
+   ```
+
+2. **Explicitly Unload**
+   ```csharp
+   _uiService.UnloadUi<Shop>();
+   ```
+
+3. **Unload UI Sets on Scene Change**
+   ```csharp
+   void OnDestroy()
+   {
+       _uiService.UnloadUiSet(levelSpecificSetId);
+   }
+   ```
+
+---
+
+#### Issue: "UiConfig was not added to the service" Error
+
+**Error**: `KeyNotFoundException: The UiConfig of type X was not added to the service`
+
+**Cause**: UI type not registered in `UiConfigs` asset
+
+**Solution**:
+1. Open your `UiConfigs` ScriptableObject asset
+2. Add a new entry for your presenter type
+3. Set the addressable reference to your UI prefab
+4. Set the layer number
+5. Save the asset
+
+```csharp
+// In UiConfigs inspector:
+// Type: MyNewPresenter
+// Addressable: Assets/UI/MyNewPresenter.prefab
+// Layer: 2
+```
+
+---
+
+#### Issue: Loading Spinner Not Appearing
+
+**Symptoms**: Long loads show no feedback to user
+
+**Solutions**:
+
+1. **Set Loading Spinner in UiConfigs**
+   ```csharp
+   // In UiConfigs ScriptableObject
+   // Set "Loading Spinner Type" field to your spinner presenter type
+   ```
+
+2. **Ensure Spinner is Preloaded**
+   ```csharp
+   // Loading spinner is auto-loaded on Init
+   // Make sure Init is called before any UI operations
+   _uiService.Init(_uiConfigs);
+   ```
+
+3. **Check Layer Order**
+   ```csharp
+   // Loading spinner should be on highest layer
+   // e.g., Layer 999 so it appears above everything
+   ```
+
+---
+
+#### Issue: UI Flickers or Appears Briefly Before Opening
+
+**Cause**: UI GameObject is active during initialization
+
+**Solution**: UiService automatically handles this, but if creating UI manually:
+```csharp
+// Ensure prefab's root GameObject is DISABLED in the prefab
+// The service will enable it when ready
+```
+
+---
+
+#### Issue: Cancellation Not Working
+
+**Symptoms**: `CancellationToken` doesn't stop UI loading
+
+**Possible Causes**:
+
+1. **Token Not Passed Through**
+   ```csharp
+   // ❌ WRONG - Token not used
+   await _uiService.OpenUiAsync<Shop>();
+   
+   // ✅ CORRECT - Pass token
+   var cts = new CancellationTokenSource();
+   await _uiService.OpenUiAsync<Shop>(cancellationToken: cts.Token);
+   ```
+
+2. **Cancelling After Load Complete**
+   ```csharp
+   // Can only cancel during async load, not after
+   var task = _uiService.OpenUiAsync<Shop>(ct);
+   await task; // Already complete
+   cts.Cancel(); // Too late - no effect
+   ```
+
+---
+
+### Debugging Tips
+
+#### Enable Detailed Logging
+
+```csharp
+public class DebugUiService : UiService
+{
+    public override async UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false, CancellationToken ct = default)
+    {
+        Debug.Log($"[UiService] Loading {type.Name}...");
+        var result = await base.LoadUiAsync(type, openAfter, ct);
+        Debug.Log($"[UiService] Loaded {type.Name} successfully");
+        return result;
+    }
+}
+```
+
+#### Inspect UI State at Runtime
+
+```csharp
+// Create a debug window
+public class UiDebugWindow : MonoBehaviour
+{
+    private IUiService _uiService;
+    
+    void OnGUI()
+    {
+        GUILayout.Label("=== UI Service Debug ===");
+        GUILayout.Label($"Loaded: {_uiService.LoadedPresenters.Count}");
+        GUILayout.Label($"Visible: {_uiService.VisiblePresenters.Count}");
+        GUILayout.Label($"Layers: {_uiService.Layers.Count}");
+        
+        foreach (var type in _uiService.VisiblePresenters)
+        {
+            GUILayout.Label($"  [VISIBLE] {type.Name}");
+        }
+    }
+}
+```
+
+---
+
+### Still Having Issues?
+
+1. **Check Unity Console** - Look for warnings/errors from UiService
+2. **Verify Dependencies** - Ensure UniTask and Addressables are installed
+3. **Review CHANGELOG** - Check if recent version introduced breaking changes
+4. **Search GitHub Issues** - Your issue may already be reported
+5. **Create New Issue** - [Report bug](https://github.com/CoderGamester/com.gamelovers.uiservice/issues) with:
+   - Unity version
+   - Package version
+   - Code sample
+   - Error logs
+   - Steps to reproduce
+
+---
+
 ## Contributing
 
 We welcome contributions from the community! Here's how you can help:

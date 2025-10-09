@@ -31,6 +31,7 @@ namespace GameLovers.UiService
 
 		private Type _loadingSpinnerType;
 		private Transform _uiParent;
+		private bool _disposed;
 
 		/// <inheritdoc />
 		public IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters => _loadedPresentersReadOnly;
@@ -60,11 +61,34 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void Init(UiConfigs configs)
 		{
+			if (configs == null)
+			{
+				throw new ArgumentNullException(nameof(configs), "UiConfigs cannot be null");
+			}
+
 			var uiConfigs = configs.Configs;
 			var sets = configs.Sets;
 
 			foreach (var uiConfig in uiConfigs)
 			{
+				if (string.IsNullOrEmpty(uiConfig.AddressableAddress))
+				{
+					throw new ArgumentException($"UiConfig for type '{uiConfig.UiType.Name}' has empty addressable address. This UI will fail to load.");
+				}
+				if (uiConfig.UiType == null)
+				{
+					throw new ArgumentException($"UiConfig with addressable '{uiConfig.AddressableAddress}' has null UiType, skipping");
+				}
+
+				if (uiConfig.Layer < 0)
+				{
+					Debug.LogWarning($"UiConfig for type '{uiConfig.UiType.Name}' has negative layer number ({uiConfig.Layer}). This may cause unexpected behavior.");
+				}
+				if (uiConfig.Layer > 1000)
+				{
+					Debug.LogWarning($"UiConfig for type '{uiConfig.UiType.Name}' has very high layer number ({uiConfig.Layer}). Consider using lower values for better organization.");
+				}
+
 				AddUiConfig(uiConfig);
 			}
 
@@ -81,7 +105,14 @@ namespace GameLovers.UiService
 
 			if (_loadingSpinnerType != null)
 			{
-				LoadUiAsync(_loadingSpinnerType).Forget();
+				if (!_uiConfigs.ContainsKey(_loadingSpinnerType))
+				{
+					Debug.LogError($"Loading spinner type '{_loadingSpinnerType.Name}' is set but has no corresponding UiConfig. Loading spinner will not work.");
+				}
+				else
+				{
+					LoadUiAsync(_loadingSpinnerType).Forget();
+				}
 			}
 		}
 
@@ -403,6 +434,54 @@ namespace GameLovers.UiService
 			}
 
 			CloseUi(_loadingSpinnerType);
+		}
+
+		/// <summary>
+		/// Disposes of the UI service, cleaning up all resources and unsubscribing from events.
+		/// </summary>
+		public void Dispose()
+		{
+			if (_disposed)
+			{
+				return;
+			}
+
+			_disposed = true;
+
+			// Close all visible UI
+			CloseAllUi();
+
+			// Unload all UI presenters
+			var presenterTypes = new List<Type>(_uiPresenters.Keys);
+			foreach (var type in presenterTypes)
+			{
+				try
+				{
+					UnloadUi(type);
+				}
+				catch (Exception ex)
+				{
+					Debug.LogWarning($"Failed to unload UI of type {type.Name} during disposal: {ex.Message}");
+				}
+			}
+
+			// Clear all collections
+			_uiPresenters.Clear();
+			_visibleUiList.Clear();
+			_uiConfigs.Clear();
+			_uiSets.Clear();
+			_layers.Clear();
+
+			// Clean up static events
+			// Note: We don't call RemoveAllListeners on static UnityEvents as it would affect other instances
+			// Users should unsubscribe from OnOrientationChanged and OnResolutionChanged in their own code
+
+			// Destroy UI parent GameObject
+			if (_uiParent != null)
+			{
+				Object.Destroy(_uiParent.gameObject);
+				_uiParent = null;
+			}
 		}
 	}
 }

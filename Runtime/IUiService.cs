@@ -248,7 +248,7 @@ namespace GameLovers.UiService
 	/// <remarks>
 	/// This interface provides a way to initialize the UI service with the game's UI configurations.
 	/// </remarks>
-	public interface IUiServiceInit : IUiService
+	public interface IUiServiceInit : IUiService, IDisposable
 	{
 		/// <summary>
 		/// Initializes the UI service with the given UI configurations.
