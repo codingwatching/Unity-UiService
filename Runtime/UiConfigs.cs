@@ -25,29 +25,10 @@ namespace GameLovers.UiService
 	[CreateAssetMenu(fileName = "UiConfigs", menuName = "ScriptableObjects/Configs/UiConfigs")]
 	public class UiConfigs : ScriptableObject//, IConfigsContainer<UiConfig>
 	{
-		[SerializeField] private string _loadingSpinnerType;
 		[SerializeField]
 		private List<UiConfigSerializable> _configs = new List<UiConfigSerializable>();
 		[SerializeField]
 		private List<UiSetConfigSerializable> _sets = new List<UiSetConfigSerializable>();
-
-		/// <summary>
-		/// Gets or sets the type of the loading spinner
-		/// </summary>
-		public Type LoadingSpinnerType
-		{
-			get => String.IsNullOrEmpty(_loadingSpinnerType) ? null : Type.GetType(_loadingSpinnerType);
-			set => _loadingSpinnerType = value?.GetType().AssemblyQualifiedName;
-		}
-
-		/// <summary>
-		/// Gets or sets the type of the loading spinner as a string
-		/// </summary>
-		public string LoadingSpinnerTypeString
-		{
-			get => _loadingSpinnerType;
-			set => _loadingSpinnerType = value;
-		}
 
 		/// <summary>
 		/// Gets or sets the list of UI configurations

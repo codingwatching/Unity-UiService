@@ -273,7 +273,6 @@ Visualize your UI configuration and layer organization before entering play mode
 - **Layer Organization** - See all UIs grouped by layer number
 - **Color-coded Layers** - Each layer has a unique color for easy identification
 - **Configuration Overview** - View UiConfigs structure without playing
-- **Loading Spinner Info** - See which presenter is set as loading spinner
 - **Search & Filter** - Find specific UIs quickly
 - **Statistics** - Total UIs, layer counts, sync vs async loading
 - **Synchronous Loading Indicators** - Clearly marks UIs that load synchronously
@@ -1101,33 +1100,6 @@ async void OnLevelComplete()
 // Addressable: Assets/UI/MyNewPresenter.prefab
 // Layer: 2
 ```
-
----
-
-#### Issue: Loading Spinner Not Appearing
-
-**Symptoms**: Long loads show no feedback to user
-
-**Solutions**:
-
-1. **Set Loading Spinner in UiConfigs**
-   ```csharp
-   // In UiConfigs ScriptableObject
-   // Set "Loading Spinner Type" field to your spinner presenter type
-   ```
-
-2. **Ensure Spinner is Preloaded**
-   ```csharp
-   // Loading spinner is auto-loaded on Init
-   // Make sure Init is called before any UI operations
-   _uiService.Init(_uiConfigs);
-   ```
-
-3. **Check Layer Order**
-   ```csharp
-   // Loading spinner should be on highest layer
-   // e.g., Layer 999 so it appears above everything
-   ```
 
 ---
 

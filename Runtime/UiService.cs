@@ -37,7 +37,6 @@ namespace GameLovers.UiService
 		private readonly IReadOnlyDictionary<int, UiSetConfig> _uiSetsReadOnly;
 		private readonly IReadOnlyList<Type> _visiblePresentersReadOnly;
 
-		private Type _loadingSpinnerType;
 		private Transform _uiParent;
 		private bool _disposed;
 
@@ -117,22 +116,9 @@ namespace GameLovers.UiService
 			}
 
 			_uiParent = new GameObject("Ui").transform;
-			_loadingSpinnerType = configs.LoadingSpinnerType;
 
 			_uiParent.gameObject.AddComponent<UiServiceMonoComponent>();
 			Object.DontDestroyOnLoad(_uiParent.gameObject);
-
-			if (_loadingSpinnerType != null)
-			{
-				if (!_uiConfigs.ContainsKey(_loadingSpinnerType))
-				{
-					Debug.LogError($"Loading spinner type '{_loadingSpinnerType.Name}' is set but has no corresponding UiConfig. Loading spinner will not work.");
-				}
-				else
-				{
-					LoadUiAsync(_loadingSpinnerType).Forget();
-				}
-			}
 		}
 
 		/// <inheritdoc />
@@ -438,32 +424,10 @@ namespace GameLovers.UiService
 		{
 			if (!_uiPresenters.TryGetValue(type, out var ui))
 			{
-				OpenLoadingSpinner();
 				ui = await LoadUiAsync(type, false, cancellationToken);
-				CloseLoadingSpinner();
 			}
 
 			return ui;
-		}
-
-		private void OpenLoadingSpinner()
-		{
-			if (_loadingSpinnerType == null)
-			{
-				return;
-			}
-
-			OpenUi(_loadingSpinnerType);
-		}
-
-		private void CloseLoadingSpinner()
-		{
-			if (_loadingSpinnerType == null)
-			{
-				return;
-			}
-
-			CloseUi(_loadingSpinnerType);
 		}
 
 		/// <summary>

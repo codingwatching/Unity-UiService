@@ -15,7 +15,6 @@ namespace GameLoversEditor.UiService
 	{
 		private Vector2 _scrollPosition;
 		private UiConfigs _selectedConfigs;
-		private bool _showLoadingSpinner = true;
 		private bool _showLayers = true;
 		private string _searchFilter = "";
 
@@ -45,11 +44,6 @@ namespace GameLoversEditor.UiService
 			}
 
 			_scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-			
-			if (_showLoadingSpinner)
-			{
-				DrawLoadingSpinner();
-			}
 			
 			if (_showLayers)
 			{
@@ -90,7 +84,6 @@ namespace GameLoversEditor.UiService
 		{
 			EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 			
-			_showLoadingSpinner = GUILayout.Toggle(_showLoadingSpinner, "Loading Spinner", EditorStyles.toolbarButton);
 			_showLayers = GUILayout.Toggle(_showLayers, "Layer Hierarchy", EditorStyles.toolbarButton);
 			
 			GUILayout.FlexibleSpace();
@@ -109,26 +102,6 @@ namespace GameLoversEditor.UiService
 			{
 				CreateNewUiConfigs();
 			}
-		}
-
-		private void DrawLoadingSpinner()
-		{
-			EditorGUILayout.LabelField("Loading Spinner", EditorStyles.boldLabel);
-			EditorGUI.indentLevel++;
-			
-			var spinnerType = _selectedConfigs.LoadingSpinnerType;
-			if (spinnerType != null)
-			{
-				EditorGUILayout.LabelField("Type:", spinnerType.Name);
-				EditorGUILayout.LabelField("Full Name:", spinnerType.FullName);
-			}
-			else
-			{
-				EditorGUILayout.HelpBox("No loading spinner configured", MessageType.Info);
-			}
-			
-			EditorGUI.indentLevel--;
-			EditorGUILayout.Space(10);
 		}
 
 		private void DrawLayerHierarchy()

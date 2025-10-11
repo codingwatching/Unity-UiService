@@ -93,8 +93,6 @@ namespace GameLoversEditor.UiService
 		{
 			serializedObject.Update();
 
-			LoadingSpinnerLayout();
-
 			EditorGUILayout.Space();
 			EditorGUILayout.HelpBox(_uiConfigGuiContent.tooltip, MessageType.Info);
 			_configList.DoLayoutList();
@@ -109,31 +107,6 @@ namespace GameLoversEditor.UiService
 			{
 				OnEnable();
 			}
-		}
-
-		private void LoadingSpinnerLayout()
-		{
-			var uiPresentersNames = new List<string> { "<None>" };
-			var uiPresentersAssemblyNames = new List<string> { "<None>" };
-
-			foreach (var uiConfig in _scriptableObject.Configs)
-			{
-				uiPresentersNames.Add(uiConfig.UiType.Name);
-				uiPresentersAssemblyNames.Add(uiConfig.UiType.AssemblyQualifiedName);
-			}
-
-			var selectedIndex = 0;
-			if (_scriptableObject.LoadingSpinnerType != null)
-			{
-				selectedIndex = uiPresentersAssemblyNames.FindIndex(uiPresenterName =>
-																		_scriptableObject.LoadingSpinnerTypeString ==
-																		uiPresenterName);
-				selectedIndex = Math.Max(selectedIndex, 0);
-			}
-
-			selectedIndex = EditorGUILayout.Popup("Loading Spinner Presenter", selectedIndex, uiPresentersNames.ToArray());
-			_scriptableObject.LoadingSpinnerTypeString =
-				selectedIndex == 0 ? null : uiPresentersAssemblyNames[selectedIndex];
 		}
 
 		private void InitConfigValues()
@@ -190,14 +163,15 @@ namespace GameLoversEditor.UiService
 					Layer = sortingOrder < 0 ? 0 : sortingOrder,
 					UiType = type,
 					LoadSynchronously = Attribute.IsDefined(type, typeof(LoadSynchronouslyAttribute))
-
 				};
 
+				// Always add to dropdown arrays (for both new and existing configs)
+				uiConfigsAddress.Add(config.AddressableAddress);
+				_uiConfigsType.Add(config.UiType.AssemblyQualifiedName);
+
+				// Preserve custom layer value for existing configs
 				if (indexMatch > -1)
 				{
-					uiConfigsAddress.Add(config.AddressableAddress);
-					_uiConfigsType.Add(config.UiType.AssemblyQualifiedName);
-
 					config.Layer = sortingOrder < 0 ? configsCache[indexMatch].Layer : config.Layer;
 				}
 
