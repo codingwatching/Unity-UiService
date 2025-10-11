@@ -11,24 +11,24 @@ A powerful and flexible UI management system for Unity that provides a robust ab
 - [Key Features](#key-features)
 - [System Requirements](#system-requirements)
 - [Installation](#installation)
+- [Package Structure](#package-structure)
+- [Dependencies](#dependencies)
 - [Quick Start](#quick-start)
 - [Core Concepts](#core-concepts)
+  - [Editor Windows](#editor-windows)
   - [UI Presenter](#ui-presenter)
   - [UI Layers](#ui-layers)
   - [UI Sets](#ui-sets)
   - [UI Configuration](#ui-configuration)
 - [API Documentation](#api-documentation)
-  - [Creating UI Presenters](#creating-ui-presenters)
   - [Managing UI Lifecycle](#managing-ui-lifecycle)
   - [Working with UI Sets](#working-with-ui-sets)
   - [Async Operations](#async-operations)
 - [Advanced Features](#advanced-features)
-  - [Delayed UI Presenters](#delayed-ui-presenters)
-  - [UI Toolkit Integration](#ui-toolkit-integration)
+  - [UI Analytics and Performance Tracking](#ui-analytics-and-performance-tracking)
   - [Helper Views](#helper-views)
-- [Package Structure](#package-structure)
-- [Dependencies](#dependencies)
-- [Migration Guide](#migration-guide)
+- [Performance Optimization](#performance-optimization)
+- [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [Support](#support)
 - [License](#license)
@@ -41,6 +41,7 @@ A powerful and flexible UI management system for Unity that provides a robust ab
 - **📦 UI Sets** - Group related UI elements for batch operations
 - **💾 Memory Management** - Efficient loading/unloading of UI assets
 - **🎯 Type-safe API** - Generic methods for compile-time safety
+- **📊 Analytics & Performance Tracking** - Optional analytics system with dependency injection
 - **📱 Responsive Design** - Built-in support for safe areas and screen size adjustments
 - **🔧 Addressables Integration** - Seamless integration with Unity's Addressables system
 - **🎨 UI Toolkit Support** - Compatible with both uGUI and UI Toolkit
@@ -76,6 +77,37 @@ Add the following line to your project's `Packages/manifest.json`:
 }
 ```
 
+## Package Structure
+
+```
+<root>
+  ├── package.json          # Package manifest with dependencies and metadata
+  ├── README.md             # This documentation file
+  ├── CHANGELOG.md          # Version history and release notes
+  ├── LICENSE.md            # MIT license terms
+  ├── Runtime/              # Core runtime scripts for the UI service
+  │   ├── *.asmdef          # Assembly definition for runtime code
+  │   ├── Core Services     # Main UI service implementation and interfaces
+  │   ├── Presenters        # Base classes for UI presenters and UI Toolkit support
+  │   ├── Configuration     # ScriptableObject configs for UI setup
+  │   ├── Asset Loading     # Addressables integration and loading utilities
+  │   ├── Delayers/         # Animation and time-based delay implementations
+  │   └── Views/            # Helper components for responsive and optimized UI
+  └── Editor/               # Unity Editor extensions and custom inspectors
+      ├── *.asmdef          # Assembly definition for editor code
+      ├── Config Editors    # Custom inspectors for UI configuration assets
+      └── View Editors      # Custom editors for specialized UI components
+```
+
+## Dependencies
+
+This package requires:
+
+- **[Unity Addressables](https://docs.unity3d.com/Packages/com.unity.addressables@latest)** (v2.6.0+) - For async asset loading
+- **[UniTask](https://github.com/Cysharp/UniTask)** (v2.5.10+) - For efficient async operations
+
+Dependencies are automatically resolved when installing via Unity Package Manager.
+
 ## Quick Start
 
 ### 1. Create UI Configuration
@@ -99,9 +131,14 @@ public class GameInitializer : MonoBehaviour
     
     void Start()
     {
-        // Create and initialize the UI service
+        // Create and initialize the UI service (without analytics)
         _uiService = new UiService();
         _uiService.Init(_uiConfigs);
+        
+        // Or with analytics (opt-in)
+        // var analytics = new UiAnalytics();
+        // _uiService = new UiService(new UiAssetLoader(), analytics);
+        // _uiService.Init(_uiConfigs);
     }
 }
 ```
@@ -178,6 +215,76 @@ public class GameManager : MonoBehaviour
 
 ## Core Concepts
 
+### Editor Windows
+
+The package includes powerful editor windows for managing and monitoring your UI system:
+
+#### Analytics Window
+
+Monitor UI performance metrics and events in real-time during play mode.
+
+**Opening the Window:**
+- Navigate to **Tools → UI Service → Analytics**
+
+**Features:**
+- **Real-time Performance Metrics** - View load, open, and close durations for each UI
+- **Usage Statistics** - Track open/close counts and total lifetime for each presenter
+- **Color-coded Performance** - Visual indicators for slow operations (green/yellow/red)
+- **Timeline Information** - See when UIs were first opened and last closed
+- **Auto-refresh** - Automatically updates metrics while playing
+- **Clear Data** - Reset all collected analytics
+- **Log Summary** - Export performance summary to console
+
+**Usage:**
+1. Open **Tools → UI Service → Analytics**
+2. Enter Play Mode
+3. Use your UI system normally
+4. View metrics updating in real-time
+
+**Performance Thresholds:**
+- **Load Time**: <0.1s (green), <0.5s (yellow), ≥0.5s (red)
+- **Open/Close Time**: <0.05s (green), <0.2s (yellow), ≥0.2s (red)
+
+#### Hierarchy Window
+
+View and control all active UI presenters in the scene during play mode.
+
+**Features:**
+- **Live UI Hierarchy** - See all loaded presenters grouped by layer
+- **Status Indicators** - Visual open (🟢) / closed (🔴) status for each UI
+- **Quick Controls** - Open/close any UI with one click
+- **Detailed Inspector** - Expand presenters to see full details
+- **GameObject Navigation** - Select and ping presenters in the hierarchy
+- **Batch Operations** - Close all UIs at once
+- **Auto-refresh** - Updates every 0.5 seconds automatically
+
+**Usage:**
+1. Open **Tools → UI Service → Hierarchy Window**
+2. Enter Play Mode
+3. See all active presenters organized by layer
+4. Click on any presenter to expand details
+5. Use quick controls to open/close/destroy UIs
+
+#### Layer Visualizer
+
+Visualize your UI configuration and layer organization before entering play mode.
+
+**Features:**
+- **Layer Organization** - See all UIs grouped by layer number
+- **Color-coded Layers** - Each layer has a unique color for easy identification
+- **Configuration Overview** - View UiConfigs structure without playing
+- **Loading Spinner Info** - See which presenter is set as loading spinner
+- **Search & Filter** - Find specific UIs quickly
+- **Statistics** - Total UIs, layer counts, sync vs async loading
+- **Synchronous Loading Indicators** - Clearly marks UIs that load synchronously
+
+**Usage:**
+1. Open **Tools → UI Service → Layer Visualizer**
+2. Select or auto-find your UiConfigs asset
+3. Browse layer hierarchy and configuration
+4. Use search to filter specific UIs
+5. Review statistics for optimization insights
+
 ### UI Presenter
 
 The `UiPresenter` is the base class for all UI elements in the system. It provides:
@@ -249,6 +356,71 @@ var profileData = new PlayerProfileData
 await _uiService.OpenUiAsync<PlayerProfilePresenter, PlayerProfileData>(profileData);
 ```
 
+#### UI Toolkit Integration
+
+For UI Toolkit (UI Elements) support:
+
+```csharp
+public class UIToolkitMenu : UiToolkitPresenter
+{
+    [SerializeField] private UIDocument _document;
+    
+    private Button _playButton;
+    private Label _titleLabel;
+    
+    protected override void OnInitialized()
+    {
+        var root = _document.rootVisualElement;
+        
+        _playButton = root.Q<Button>("play-button");
+        _titleLabel = root.Q<Label>("title-label");
+        
+        _playButton.clicked += OnPlayClicked;
+    }
+    
+    private void OnPlayClicked()
+    {
+        Close(destroy: false);
+    }
+}
+```
+
+#### Delayed UI Presenter
+
+For UI with opening/closing animations:
+
+```csharp
+public class SlideInPanel : DelayUiPresenter
+{
+    [SerializeField] private RectTransform _panel;
+    [SerializeField] private float _slideDuration = 0.5f;
+    
+    protected override void ConfigureDelayers()
+    {
+        OpeningDelayer = new TimeDelayer(_slideDuration);
+        ClosingDelayer = new TimeDelayer(_slideDuration);
+    }
+    
+    protected override void OnPreOpen()
+    {
+        // Position panel off-screen
+        _panel.anchoredPosition = new Vector2(-1000, 0);
+    }
+    
+    protected override void OnOpening()
+    {
+        // Animate panel sliding in
+        _panel.DOAnchorPosX(0, _slideDuration);
+    }
+    
+    protected override void OnClosing()
+    {
+        // Animate panel sliding out
+        _panel.DOAnchorPosX(-1000, _slideDuration);
+    }
+}
+```
+
 ### UI Layers
 
 UI elements are organized into layers, where higher layer numbers appear on top:
@@ -297,65 +469,6 @@ Configure your UI in the `UiConfigs` ScriptableObject:
 5. **UI Set ID** - Optional grouping ID
 
 ## API Documentation
-
-### Creating UI Presenters
-
-#### Simple Presenter
-
-```csharp
-public class NotificationPresenter : UiPresenter
-{
-    [SerializeField] private TextMeshProUGUI _messageText;
-    [SerializeField] private float _displayDuration = 3f;
-    
-    public void SetMessage(string message)
-    {
-        _messageText.text = message;
-    }
-    
-    protected override void OnOpened()
-    {
-        // Auto-close after duration
-        StartCoroutine(AutoClose());
-    }
-    
-    private IEnumerator AutoClose()
-    {
-        yield return new WaitForSeconds(_displayDuration);
-        Close(destroy: false);
-    }
-}
-```
-
-#### Delayed UI Presenter
-
-For UI with opening/closing animations:
-
-```csharp
-public class AnimatedPopup : DelayUiPresenter
-{
-    [SerializeField] private Animator _animator;
-    [SerializeField] private float _openDuration = 0.5f;
-    [SerializeField] private float _closeDuration = 0.3f;
-    
-    protected override void ConfigureDelayers()
-    {
-        // Use animation-based delays
-        OpeningDelayer = new AnimationDelayer(_animator, "Open");
-        ClosingDelayer = new AnimationDelayer(_animator, "Close");
-        
-        // Or use time-based delays
-        // OpeningDelayer = new TimeDelayer(_openDuration);
-        // ClosingDelayer = new TimeDelayer(_closeDuration);
-    }
-    
-    protected override void OnOpened()
-    {
-        base.OnOpened();
-        // UI is fully open and animation complete
-    }
-}
-```
 
 ### Managing UI Lifecycle
 
@@ -446,69 +559,222 @@ catch (OperationCanceledException)
 
 ## Advanced Features
 
-### Delayed UI Presenters
+### UI Analytics and Performance Tracking
 
-The `DelayUiPresenter` class provides built-in support for opening/closing animations:
+The UI Service includes an optional analytics system for tracking UI events and performance metrics. Analytics is **opt-in** via dependency injection.
+
+#### Enabling Analytics
 
 ```csharp
-public class SlideInPanel : DelayUiPresenter
+using GameLovers.UiService;
+using UnityEngine;
+
+public class GameInitializer : MonoBehaviour
 {
-    [SerializeField] private RectTransform _panel;
-    [SerializeField] private float _slideDuration = 0.5f;
+    [SerializeField] private UiConfigs _uiConfigs;
     
-    protected override void ConfigureDelayers()
+    void Start()
     {
-        OpeningDelayer = new TimeDelayer(_slideDuration);
-        ClosingDelayer = new TimeDelayer(_slideDuration);
-    }
-    
-    protected override void OnPreOpen()
-    {
-        // Position panel off-screen
-        _panel.anchoredPosition = new Vector2(-1000, 0);
-    }
-    
-    protected override void OnOpening()
-    {
-        // Animate panel sliding in
-        _panel.DOAnchorPosX(0, _slideDuration);
-    }
-    
-    protected override void OnClosing()
-    {
-        // Animate panel sliding out
-        _panel.DOAnchorPosX(-1000, _slideDuration);
+        // Create analytics instance
+        var analytics = new UiAnalytics();
+        
+        // Inject analytics into UI service
+        var uiService = new UiService(new UiAssetLoader(), analytics);
+        uiService.Init(_uiConfigs);
+        
+        // Analytics is now tracking all UI events
     }
 }
 ```
 
-### UI Toolkit Integration
+#### Running Without Analytics
 
-For UI Toolkit (UI Elements) support:
+By default, the UI Service runs without analytics overhead:
 
 ```csharp
-public class UIToolkitMenu : UiToolkitPresenter
+// No analytics - uses NullAnalytics internally (zero overhead)
+var uiService = new UiService();
+uiService.Init(_uiConfigs);
+
+// Or explicitly without analytics
+var uiService = new UiService(new UiAssetLoader(), null);
+```
+
+#### What Gets Tracked
+
+When analytics is enabled, the system automatically tracks:
+
+- **UI Loading** - Time to load UI from Addressables
+- **UI Opening** - Time to complete opening animations
+- **UI Closing** - Time to complete closing animations
+- **UI Lifecycle** - Total lifetime from first open to final close
+- **Open/Close Counts** - How many times each UI was opened/closed
+- **Timestamps** - When UI was first opened and last closed
+
+#### Accessing Performance Metrics
+
+```csharp
+public class PerformanceMonitor : MonoBehaviour
 {
-    [SerializeField] private UIDocument _document;
+    private IUiService _uiService;
     
-    private Button _playButton;
-    private Label _titleLabel;
-    
-    protected override void OnInitialized()
+    void LogPerformance()
     {
-        var root = _document.rootVisualElement;
+        var analytics = _uiService.Analytics;
         
-        _playButton = root.Q<Button>("play-button");
-        _titleLabel = root.Q<Label>("title-label");
+        // Get all metrics
+        foreach (var kvp in analytics.PerformanceMetrics)
+        {
+            var metrics = kvp.Value;
+            Debug.Log($"{metrics.UiName}:");
+            Debug.Log($"  Load Time: {metrics.LoadDuration:F3}s");
+            Debug.Log($"  Open Time: {metrics.OpenDuration:F3}s");
+            Debug.Log($"  Close Time: {metrics.CloseDuration:F3}s");
+            Debug.Log($"  Opened {metrics.OpenCount} times");
+            Debug.Log($"  Total Lifetime: {metrics.TotalLifetime:F1}s");
+        }
         
-        _playButton.clicked += OnPlayClicked;
-    }
-    
-    private void OnPlayClicked()
-    {
-        Close(destroy: false);
+        // Get specific UI metrics
+        var shopMetrics = analytics.GetMetrics(typeof(ShopPresenter));
+        if (shopMetrics.OpenCount > 0)
+        {
+            Debug.Log($"Shop was opened {shopMetrics.OpenCount} times");
+        }
+        
+        // Print summary to console
+        analytics.LogPerformanceSummary();
     }
 }
+```
+
+#### Subscribing to Analytics Events
+
+```csharp
+public class AnalyticsListener : MonoBehaviour
+{
+    private IUiService _uiService;
+    
+    void Start()
+    {
+        var analytics = _uiService.Analytics;
+        
+        // Subscribe to Unity Events
+        analytics.OnUiOpened.AddListener(OnUiOpened);
+        analytics.OnUiClosed.AddListener(OnUiClosed);
+        analytics.OnPerformanceMetricsUpdated.AddListener(OnMetricsUpdated);
+    }
+    
+    private void OnUiOpened(UiEventData data)
+    {
+        Debug.Log($"UI Opened: {data.UiName} on layer {data.Layer}");
+        // Send to your analytics backend
+        SendToBackend("ui_opened", data.UiName);
+    }
+    
+    private void OnUiClosed(UiEventData data)
+    {
+        Debug.Log($"UI Closed: {data.UiName} (destroyed: {data.WasDestroyed})");
+    }
+    
+    private void OnMetricsUpdated(UiPerformanceMetrics metrics)
+    {
+        // Track performance issues
+        if (metrics.LoadDuration > 1.0f)
+        {
+            Debug.LogWarning($"{metrics.UiName} took {metrics.LoadDuration:F2}s to load!");
+        }
+    }
+}
+```
+
+#### Custom Analytics Integration
+
+Implement `IUiAnalyticsCallback` for custom analytics backends:
+
+```csharp
+public class CustomAnalytics : IUiAnalyticsCallback
+{
+    public void OnUiLoaded(UiEventData data)
+    {
+        // Send to Firebase, Unity Analytics, or custom backend
+        FirebaseAnalytics.LogEvent("ui_loaded", new Parameter("ui_name", data.UiName));
+    }
+    
+    public void OnUiOpened(UiEventData data)
+    {
+        MyAnalyticsService.Track("ui_opened", new { 
+            name = data.UiName, 
+            layer = data.Layer,
+            timestamp = data.Timestamp 
+        });
+    }
+    
+    public void OnUiClosed(UiEventData data)
+    {
+        MyAnalyticsService.Track("ui_closed", new { 
+            name = data.UiName,
+            destroyed = data.WasDestroyed
+        });
+    }
+    
+    public void OnUiUnloaded(UiEventData data)
+    {
+        // Track memory management
+    }
+    
+    public void OnPerformanceMetricsUpdated(UiPerformanceMetrics metrics)
+    {
+        // Send performance data
+        if (metrics.LoadDuration > 0.5f)
+        {
+            MyAnalyticsService.TrackPerformance("slow_ui_load", metrics.UiName, metrics.LoadDuration);
+        }
+    }
+}
+
+// Register callback
+void Start()
+{
+    var analytics = new UiAnalytics();
+    analytics.SetCallback(new CustomAnalytics());
+    
+    var uiService = new UiService(new UiAssetLoader(), analytics);
+    uiService.Init(_uiConfigs);
+}
+```
+
+#### Creating Custom Analytics Implementations
+
+You can create custom analytics implementations for special use cases:
+
+```csharp
+public class FileLoggingAnalytics : IUiAnalytics
+{
+    private readonly UiAnalytics _baseAnalytics = new UiAnalytics();
+    private readonly StreamWriter _logFile;
+    
+    public FileLoggingAnalytics(string logPath)
+    {
+        _logFile = new StreamWriter(logPath, append: true);
+    }
+    
+    public void TrackOpenComplete(Type uiType, int layer)
+    {
+        // Log to file
+        _logFile.WriteLine($"{DateTime.Now:HH:mm:ss} - Opened: {uiType.Name}");
+        _logFile.Flush();
+        
+        // Also track normally
+        _baseAnalytics.TrackOpenComplete(uiType, layer);
+    }
+    
+    // Implement other IUiAnalytics methods...
+    // Delegate to _baseAnalytics for standard tracking
+}
+
+// Usage
+var analytics = new FileLoggingAnalytics("ui_events.log");
+var uiService = new UiService(new UiAssetLoader(), analytics);
 ```
 
 ### Helper Views
@@ -559,39 +825,6 @@ Make text elements interactive with clickable links:
 var interactableText = gameObject.AddComponent<InteractableTextView>();
 // Supports <link> tags in TextMeshPro for clickable URLs
 ```
-
-## Package Structure
-
-```
-<root>
-  ├── package.json          # Package manifest with dependencies and metadata
-  ├── README.md             # This documentation file
-  ├── CHANGELOG.md          # Version history and release notes
-  ├── LICENSE.md            # MIT license terms
-  ├── Runtime/              # Core runtime scripts for the UI service
-  │   ├── *.asmdef          # Assembly definition for runtime code
-  │   ├── Core Services     # Main UI service implementation and interfaces
-  │   ├── Presenters        # Base classes for UI presenters and UI Toolkit support
-  │   ├── Configuration     # ScriptableObject configs for UI setup
-  │   ├── Asset Loading     # Addressables integration and loading utilities
-  │   ├── Delayers/         # Animation and time-based delay implementations
-  │   └── Views/            # Helper components for responsive and optimized UI
-  └── Editor/               # Unity Editor extensions and custom inspectors
-      ├── *.asmdef          # Assembly definition for editor code
-      ├── Config Editors    # Custom inspectors for UI configuration assets
-      └── View Editors      # Custom editors for specialized UI components
-```
-
-## Dependencies
-
-This package requires:
-
-- **[Unity Addressables](https://docs.unity3d.com/Packages/com.unity.addressables@latest)** (v2.6.0+) - For async asset loading
-- **[UniTask](https://github.com/Cysharp/UniTask)** (v2.5.10+) - For efficient async operations
-
-Dependencies are automatically resolved when installing via Unity Package Manager.
-
----
 
 ## Performance Optimization
 
@@ -767,110 +1000,14 @@ async void OnLevelComplete()
 }
 ```
 
-#### 5. Optimize Delayed Presenters
-
-```csharp
-public class FastPopup : DelayUiPresenter
-{
-    protected override void ConfigureDelayers()
-    {
-        // Use short delays for snappy UX
-        OpeningDelayer = new TimeDelayer(0.2f);  // 200ms
-        ClosingDelayer = new TimeDelayer(0.15f); // 150ms
-    }
-}
-```
-
 **Animation Performance**:
 - Keep open/close animations under 0.5 seconds
 - Use `TimeDelayer` for simple fades (lighter than `AnimationDelayer`)
 - Disable `Animator` component when UI is closed
 
----
-
-### WebGL Specific Considerations
-
-When building for WebGL, be extra mindful of memory:
-
-```csharp
-// WebGL has limited memory - be aggressive with unloading
-#if UNITY_WEBGL
-    const bool DESTROY_ON_CLOSE = true;
-#else
-    const bool DESTROY_ON_CLOSE = false;
-#endif
-
-_uiService.CloseUi<Shop>(destroy: DESTROY_ON_CLOSE);
-```
-
----
-
 ## Troubleshooting
 
-### Need Help Migrating?
-
-If you encounter issues during migration:
-1. Check the [CHANGELOG.md](CHANGELOG.md) for detailed version changes
-2. Review the [Troubleshooting](#troubleshooting) section below
-3. Open an [issue](https://github.com/CoderGamester/com.gamelovers.uiservice/issues) with your migration question
-
 ### Common Issues and Solutions
-
-#### Issue: UI Doesn't Appear After Opening
-
-**Symptoms**: `OpenUiAsync` completes but UI is not visible
-
-**Possible Causes & Solutions**:
-
-1. **UI Layer is Behind Other UI**
-   ```csharp
-   // Check layer numbers - higher numbers appear on top
-   // In UiConfigs, ensure critical UI has high layer numbers
-   // Layer 0: Background
-   // Layer 5: Popups
-   ```
-
-2. **Canvas is Disabled**
-   ```csharp
-   // Check if parent canvas is active
-   var canvas = presenter.GetComponentInParent<Canvas>();
-   if (!canvas.gameObject.activeInHierarchy)
-       Debug.LogError("Parent canvas is disabled!");
-   ```
-
-3. **Already Opened**
-   ```csharp
-   // Service prevents opening already-visible UI
-   if (_uiService.IsVisible<MyPresenter>())
-   {
-       Debug.Log("UI is already open");
-   }
-   ```
-
----
-
-#### Issue: Null Reference Exception on GetUi<T>()
-
-**Error**: `KeyNotFoundException` or `NullReferenceException`
-
-**Cause**: Trying to get UI that hasn't been loaded yet
-
-**Solution**:
-```csharp
-// ❌ BAD - Assumes UI is loaded
-var shop = _uiService.GetUi<Shop>();
-
-// ✅ GOOD - Check first
-if (_uiService.LoadedPresenters.ContainsKey(typeof(Shop)))
-{
-    var shop = _uiService.GetUi<Shop>();
-}
-
-// ✅ BETTER - Load if needed
-var shop = await _uiService.LoadUiAsync<Shop>();
-```
-
----
 
 #### Issue: Data Not Showing in UiPresenter<TData>
 
@@ -941,58 +1078,6 @@ var shop = await _uiService.LoadUiAsync<Shop>();
    // Ensure clip names match: "Open", "Close"
    // Or use TimeDelayer if animations aren't ready:
    OpeningDelayer = new TimeDelayer(0.5f);
-   ```
-
-3. **OnOpening/OnClosing Not Called**
-   ```csharp
-   protected override void OnOpening()
-   {
-       base.OnOpening(); // ⚠️ Important - calls delayer
-       // Your animation code here
-   }
-   ```
-
----
-
-#### Issue: Memory Leak - UI Not Unloading
-
-**Symptoms**: Memory usage grows over time, UI count increases
-
-**Diagnosis**:
-```csharp
-// Add this to a debug UI
-void OnGUI()
-{
-    GUILayout.Label($"Loaded UI: {_uiService.LoadedPresenters.Count}");
-    foreach (var ui in _uiService.LoadedPresenters)
-    {
-        GUILayout.Label($"  - {ui.Key.Name}");
-    }
-}
-```
-
-**Solutions**:
-
-1. **Close With Destroy Flag**
-   ```csharp
-   // This closes but keeps in memory
-   _uiService.CloseUi<Shop>(destroy: false);
-   
-   // This properly unloads
-   _uiService.CloseUi<Shop>(destroy: true);
-   ```
-
-2. **Explicitly Unload**
-   ```csharp
-   _uiService.UnloadUi<Shop>();
-   ```
-
-3. **Unload UI Sets on Scene Change**
-   ```csharp
-   void OnDestroy()
-   {
-       _uiService.UnloadUiSet(levelSpecificSetId);
-   }
    ```
 
 ---
@@ -1081,50 +1166,6 @@ void OnGUI()
    await task; // Already complete
    cts.Cancel(); // Too late - no effect
    ```
-
----
-
-### Debugging Tips
-
-#### Enable Detailed Logging
-
-```csharp
-public class DebugUiService : UiService
-{
-    public override async UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false, CancellationToken ct = default)
-    {
-        Debug.Log($"[UiService] Loading {type.Name}...");
-        var result = await base.LoadUiAsync(type, openAfter, ct);
-        Debug.Log($"[UiService] Loaded {type.Name} successfully");
-        return result;
-    }
-}
-```
-
-#### Inspect UI State at Runtime
-
-```csharp
-// Create a debug window
-public class UiDebugWindow : MonoBehaviour
-{
-    private IUiService _uiService;
-    
-    void OnGUI()
-    {
-        GUILayout.Label("=== UI Service Debug ===");
-        GUILayout.Label($"Loaded: {_uiService.LoadedPresenters.Count}");
-        GUILayout.Label($"Visible: {_uiService.VisiblePresenters.Count}");
-        GUILayout.Label($"Layers: {_uiService.Layers.Count}");
-        
-        foreach (var type in _uiService.VisiblePresenters)
-        {
-            GUILayout.Label($"  [VISIBLE] {type.Name}");
-        }
-    }
-}
-```
-
----
 
 ### Still Having Issues?
 

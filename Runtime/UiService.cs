@@ -16,8 +16,16 @@ namespace GameLovers.UiService
 	{
 		public static readonly UnityEvent<DeviceOrientation, DeviceOrientation> OnOrientationChanged = new ();
 		public static readonly UnityEvent<Vector2, Vector2> OnResolutionChanged = new ();
+
+		/// <summary>
+		/// Internal static reference to the current analytics instance for editor tools only.
+		/// This is set when a UiService instance is created and cleared when disposed.
+		/// Only accessible to editor code within this package.
+		/// </summary>
+		internal static IUiAnalytics CurrentAnalytics { get; private set; }
 		
 		private readonly IUiAssetLoader _assetLoader;
+		private readonly IUiAnalytics _analytics;
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
 		private readonly IList<Type> _visibleUiList = new List<Type>();
 		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
@@ -45,11 +53,22 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public IReadOnlyList<Type> VisiblePresenters => _visiblePresentersReadOnly;
 
-		public UiService() : this(new UiAssetLoader()) { }
+		/// <summary>
+		/// Gets the analytics instance being used by this service
+		/// </summary>
+		public IUiAnalytics Analytics => _analytics;
 
-		public UiService(IUiAssetLoader assetLoader)
+		public UiService() : this(new UiAssetLoader(), null) { }
+
+		public UiService(IUiAssetLoader assetLoader) : this(assetLoader, null) { }
+
+		public UiService(IUiAssetLoader assetLoader, IUiAnalytics analytics)
 		{
 			_assetLoader = assetLoader;
+			_analytics = analytics ?? new NullAnalytics();
+			
+			// Set static reference for editor/debugging access
+			CurrentAnalytics = _analytics;
 			
 			// Initialize readonly wrappers to avoid allocations on property access
 			_loadedPresentersReadOnly = new ReadOnlyDictionary<Type, UiPresenter>(_uiPresenters);
@@ -131,25 +150,19 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void AddUiConfig(UiConfig config)
 		{
-			if (_uiConfigs.ContainsKey(config.UiType))
+			if (!_uiConfigs.TryAdd(config.UiType, config))
 			{
 				Debug.LogWarning($"The UiConfig {config.AddressableAddress} was already added");
-				return;
 			}
-
-			_uiConfigs.Add(config.UiType, config);
 		}
 
 		/// <inheritdoc />
 		public void AddUiSet(UiSetConfig uiSet)
 		{
-			if (_uiSets.ContainsKey(uiSet.SetId))
+			if (!_uiSets.TryAdd(uiSet.SetId, uiSet))
 			{
 				Debug.LogWarning($"The Ui Configuration with the id {uiSet.SetId.ToString()} was already added");
-				return;
 			}
-
-			_uiSets.Add(uiSet.SetId, uiSet);
 		}
 
 		/// <inheritdoc />
@@ -157,13 +170,12 @@ namespace GameLovers.UiService
 		{
 			var type = ui.GetType().UnderlyingSystemType;
 
-			if (_uiPresenters.ContainsKey(type))
+			if (!_uiPresenters.TryAdd(type, ui))
 			{
 				Debug.LogWarning($"The Ui {type} was already added");
 				return;
 			}
 
-			_uiPresenters.Add(type, ui);
 			ui.Init(this);
 
 			if (openAfter)
@@ -221,6 +233,8 @@ namespace GameLovers.UiService
 				return ui;
 			}
 
+			_analytics.TrackLoadStart(type);
+
 			var layer = AddLayer(config.Layer);
 			var gameObject = await _assetLoader.InstantiatePrefab(config, layer.transform, cancellationToken);
 
@@ -237,6 +251,8 @@ namespace GameLovers.UiService
 
 			gameObject.SetActive(false);
 			AddUi(uiPresenter, config.Layer, openAfter);
+			
+			_analytics.TrackLoadComplete(type, config.Layer);
 
 			return uiPresenter;
 		}
@@ -269,10 +285,14 @@ namespace GameLovers.UiService
 			{
 				throw new KeyNotFoundException($"Cannot unload UI of type {type}. It is not loaded.");
 			}
-
+			
+			var config = _uiConfigs[type];
+			
 			RemoveUi(type);
 
 			_assetLoader.UnloadAsset(ui.gameObject);
+			
+			_analytics.TrackUnload(type, config.Layer);
 		}
 
 		/// <inheritdoc />
@@ -337,8 +357,13 @@ namespace GameLovers.UiService
 				return;
 			}
 
+			_analytics.TrackCloseStart(type);
+			
 			_visibleUiList.Remove(type);
 			_uiPresenters[type].InternalClose(destroy);
+			
+			var config = _uiConfigs[type];
+			_analytics.TrackCloseComplete(type, config.Layer, destroy);
 		}
 
 		/// <inheritdoc />
@@ -400,8 +425,13 @@ namespace GameLovers.UiService
 				return;
 			}
 
+			_analytics.TrackOpenStart(type);
+			
 			_uiPresenters[type].InternalOpen();
 			_visibleUiList.Add(type);
+			
+			var config = _uiConfigs[type];
+			_analytics.TrackOpenComplete(type, config.Layer);
 		}
 
 		private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type, CancellationToken cancellationToken = default)
@@ -447,6 +477,12 @@ namespace GameLovers.UiService
 			}
 
 			_disposed = true;
+
+			// Clear static reference
+			if (CurrentAnalytics == _analytics)
+			{
+				CurrentAnalytics = null;
+			}
 
 			// Close all visible UI
 			CloseAllUi();

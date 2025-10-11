@@ -18,7 +18,7 @@ namespace GameLoversEditor.UiService
 	public static class UiConfigsSelect
 	{
 		
-		[MenuItem("Tools/Select UiConfigs.asset")]
+		[MenuItem("Tools/UI Service/Select UiConfigs")]
 		private static void SelectUiConfigs()
 		{
 			var assets = AssetDatabase.FindAssets($"t:{nameof(UiConfigs)}");

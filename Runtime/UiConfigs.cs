@@ -115,17 +115,18 @@ namespace GameLovers.UiService
 				{
 					AddressableAddress = serializable.AddressableAddress,
 					Layer = serializable.Layer,
-					UiType = Type.GetType(serializable.UiType)
+					UiType = Type.GetType(serializable.UiType),
+					LoadSynchronously = false
 				};
 			}
 
-			public static implicit operator UiConfigSerializable(UiConfig serializable)
+			public static implicit operator UiConfigSerializable(UiConfig config)
 			{
 				return new UiConfigSerializable
 				{
-					AddressableAddress = serializable.AddressableAddress,
-					Layer = serializable.Layer,
-					UiType = serializable.UiType.AssemblyQualifiedName
+					AddressableAddress = config.AddressableAddress,
+					Layer = config.Layer,
+					UiType = config.UiType.AssemblyQualifiedName
 				};
 			}
 		}
@@ -152,6 +153,22 @@ namespace GameLovers.UiService
 				{
 					SetId = serializable.SetId,
 					UiConfigsType = configs.AsReadOnly()
+				};
+			}
+
+			public static implicit operator UiSetConfigSerializable(UiSetConfig config)
+			{
+				var configTypes = new List<string>();
+
+				foreach (var type in config.UiConfigsType)
+				{
+					configTypes.Add(type.AssemblyQualifiedName);
+				}
+
+				return new UiSetConfigSerializable
+				{
+					SetId = config.SetId,
+					UiConfigsType = configTypes
 				};
 			}
 		}
