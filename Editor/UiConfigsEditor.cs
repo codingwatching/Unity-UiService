@@ -165,22 +165,29 @@ namespace GameLoversEditor.UiService
 			var layerField = element.Q<IntegerField>();
 
 			label.text = addressProperty.stringValue;
-			layerField.value = layerProperty.intValue;
-
-			// Handle layer changes
-			layerField.RegisterValueChangedCallback(evt => OnLayerChanged(evt, addressProperty, layerProperty));
+			
+			// Unbind to remove previous event handlers
+			layerField.Unbind();
+			
+			// Bind to property for automatic serialization
+			layerField.BindProperty(layerProperty);
+			
+			// Register custom callback for prefab sync (using userData to store address for later)
+			layerField.userData = addressProperty.stringValue;
+			layerField.RegisterValueChangedCallback(OnLayerChanged);
 		}
 
-		private void OnLayerChanged(ChangeEvent<int> evt, SerializedProperty addressProperty, SerializedProperty layerProperty)
+		private void OnLayerChanged(ChangeEvent<int> evt)
 		{
 			if (evt.newValue == evt.previousValue)
 				return;
 
-			layerProperty.intValue = evt.newValue;
-			layerProperty.serializedObject.ApplyModifiedProperties();
-
-			// Sync with Canvas/UIDocument sorting order
-			SyncLayerToPrefab(addressProperty.stringValue, evt.newValue);
+			var layerField = evt.target as IntegerField;
+			if (layerField?.userData is string address)
+			{
+				// Sync with Canvas/UIDocument sorting order
+				SyncLayerToPrefab(address, evt.newValue);
+			}
 		}
 
 		private VisualElement CreateSetsContainer()
@@ -228,53 +235,15 @@ namespace GameLoversEditor.UiService
 			dropdown.style.paddingBottom = 3;
 			dropdown.style.marginLeft = 3;
 			dropdown.style.marginRight = 3;
+			
 			return dropdown;
-		}
-
-		private void BindSetPresenterElement(VisualElement element, int index, SerializedProperty uiConfigsTypeProperty)
-		{
-			if (index >= uiConfigsTypeProperty.arraySize)
-				return;
-
-			var dropdown = element as DropdownField;
-			if (dropdown == null)
-				return;
-
-			var itemProperty = uiConfigsTypeProperty.GetArrayElementAtIndex(index);
-			
-			// Find the index in our type list
-			var currentType = itemProperty.stringValue;
-			var selectedIndex = string.IsNullOrEmpty(currentType) ? 0 : 
-				_uiConfigsType.FindIndex(type => type == currentType);
-			
-			if (selectedIndex < 0) 
-				selectedIndex = 0;
-
-			if (_uiConfigsAddress != null && _uiConfigsAddress.Length > 0)
-			{
-				dropdown.index = selectedIndex;
-				dropdown.RegisterValueChangedCallback(evt => OnPresenterSelectionChanged(evt, itemProperty));
-			}
-		}
-
-		private void OnPresenterSelectionChanged(ChangeEvent<string> evt, SerializedProperty itemProperty)
-		{
-			var newIndex = Array.IndexOf(_uiConfigsAddress, evt.newValue);
-			if (newIndex >= 0 && newIndex < _uiConfigsType.Count)
-			{
-				itemProperty.stringValue = _uiConfigsType[newIndex];
-				itemProperty.serializedObject.ApplyModifiedProperties();
-			}
 		}
 
 		private VisualElement CreateSetElement(string setName, int setIndex)
 		{
 			var setContainer = new VisualElement();
-			setContainer.style.marginBottom = 15;
 			setContainer.style.paddingLeft = 5;
 			setContainer.style.paddingRight = 5;
-			setContainer.style.paddingTop = 5;
-			setContainer.style.paddingBottom = 5;
 			setContainer.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.2f);
 			setContainer.style.borderBottomLeftRadius = 4;
 			setContainer.style.borderBottomRightRadius = 4;
@@ -300,17 +269,53 @@ namespace GameLoversEditor.UiService
 				reorderable = true,
 				showBoundCollectionSize = false,
 				virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
-				fixedItemHeight = 22
+				fixedItemHeight = 25
 			};
 
 			presenterListView.BindProperty(uiConfigsTypeProperty);
 
 			presenterListView.makeItem = CreateSetPresenterElement;
-			presenterListView.bindItem = (element, index) => BindSetPresenterElement(element, index, uiConfigsTypeProperty);
+			
+			// Register callbacks to save changes when items are added, removed, or reordered
+			presenterListView.itemsAdded += indices => OnPresenterItemsAdded(indices, uiConfigsTypeProperty);
+			presenterListView.itemsRemoved += _ => SaveSetChanges();
+			presenterListView.itemIndexChanged += (_, _) => SaveSetChanges();
 
 			setContainer.Add(presenterListView);
 
 			return setContainer;
+		}
+
+		private void OnPresenterItemsAdded(IEnumerable<int> indices, SerializedProperty uiConfigsTypeProperty)
+		{
+			if (_uiConfigsAddress == null || _uiConfigsAddress.Length == 0)
+			{
+				return;
+			}
+
+			var defaultType = _uiConfigsAddress[0];
+			
+			foreach (var index in indices)
+			{
+				if (index < uiConfigsTypeProperty.arraySize)
+				{
+					var itemProperty = uiConfigsTypeProperty.GetArrayElementAtIndex(index);
+					itemProperty.stringValue = defaultType;
+				}
+			}
+		
+			SaveSetChanges();
+		}
+
+		private void SaveSetChanges()
+		{
+			serializedObject.ApplyModifiedProperties();
+			
+			if (_scriptableObject != null)
+			{
+				EditorUtility.SetDirty(_scriptableObject);
+				AssetDatabase.SaveAssets();
+			}
 		}
 
 		private void SyncConfigsWithAddressables()
