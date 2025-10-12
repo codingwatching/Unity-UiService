@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
+using UnityEditor.UIElements;
 using GameLovers.UiService;
 
 // ReSharper disable once CheckNamespace
@@ -13,10 +15,12 @@ namespace GameLoversEditor.UiService
 	/// </summary>
 	public class UiLayerVisualizerWindow : EditorWindow
 	{
-		private Vector2 _scrollPosition;
 		private UiConfigs _selectedConfigs;
-		private bool _showLayers = true;
 		private string _searchFilter = "";
+		
+		private ScrollView _scrollView;
+		private ObjectField _configsField;
+		private ToolbarSearchField _searchField;
 
 		[MenuItem("Tools/UI Service/Layer Visualizer")]
 		public static void ShowWindow()
@@ -32,86 +36,156 @@ namespace GameLoversEditor.UiService
 			AutoFindUiConfigs();
 		}
 
-		private void OnGUI()
+		private void CreateGUI()
 		{
-			DrawHeader();
-			DrawToolbar();
+			var root = rootVisualElement;
+			root.Clear();
+			
+			// Header
+			var header = CreateHeader();
+			root.Add(header);
+			
+			// Toolbar
+			var toolbar = CreateToolbar();
+			root.Add(toolbar);
+			
+			// Scroll view
+			_scrollView = new ScrollView();
+			_scrollView.style.flexGrow = 1;
+			root.Add(_scrollView);
+			
+			// Update content
+			UpdateContent();
+		}
+
+		private VisualElement CreateHeader()
+		{
+			var headerContainer = new VisualElement();
+			headerContainer.style.marginBottom = 5;
+			
+			// Title bar
+			var titleBar = new VisualElement();
+			titleBar.style.flexDirection = FlexDirection.Row;
+			titleBar.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+			titleBar.style.paddingTop = 5;
+			titleBar.style.paddingBottom = 5;
+			titleBar.style.paddingLeft = 5;
+			titleBar.style.paddingRight = 5;
+			
+			var titleLabel = new Label("UI Layer Hierarchy Visualizer");
+			titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			titleLabel.style.flexGrow = 1;
+			titleBar.Add(titleLabel);
+			
+			var refreshButton = new Button(() =>
+			{
+				AutoFindUiConfigs();
+				UpdateContent();
+			}) { text = "Refresh" };
+			refreshButton.style.width = 60;
+			titleBar.Add(refreshButton);
+			
+			headerContainer.Add(titleBar);
+			
+			// Config selector
+			var configRow = new VisualElement();
+			configRow.style.flexDirection = FlexDirection.Row;
+			configRow.style.paddingTop = 5;
+			configRow.style.paddingBottom = 5;
+			configRow.style.paddingLeft = 5;
+			configRow.style.alignItems = Align.Center;
+			
+			var configLabel = new Label("UI Configs:");
+			configLabel.style.width = 80;
+			configRow.Add(configLabel);
+			
+			_configsField = new ObjectField();
+			_configsField.objectType = typeof(UiConfigs);
+			_configsField.allowSceneObjects = false;
+			_configsField.value = _selectedConfigs;
+			_configsField.style.flexGrow = 1;
+			_configsField.RegisterValueChangedCallback(evt =>
+			{
+				_selectedConfigs = evt.newValue as UiConfigs;
+				UpdateContent();
+			});
+			configRow.Add(_configsField);
+			
+			headerContainer.Add(configRow);
+			
+			return headerContainer;
+		}
+
+		private VisualElement CreateToolbar()
+		{
+			var toolbar = new VisualElement();
+			toolbar.style.flexDirection = FlexDirection.Row;
+			toolbar.style.backgroundColor = new Color(0.25f, 0.25f, 0.25f);
+			toolbar.style.paddingTop = 3;
+			toolbar.style.paddingBottom = 3;
+			toolbar.style.paddingLeft = 5;
+			toolbar.style.paddingRight = 5;
+			toolbar.style.marginBottom = 5;
+			
+			var spacer = new VisualElement();
+			spacer.style.flexGrow = 1;
+			toolbar.Add(spacer);
+			
+			var searchLabel = new Label("Search:");
+			searchLabel.style.marginRight = 5;
+			searchLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+			toolbar.Add(searchLabel);
+			
+			_searchField = new ToolbarSearchField();
+			_searchField.style.width = 200;
+			_searchField.value = _searchFilter;
+			_searchField.RegisterValueChangedCallback(evt =>
+			{
+				_searchFilter = evt.newValue;
+				UpdateContent();
+			});
+			toolbar.Add(_searchField);
+			
+			return toolbar;
+		}
+
+		private void UpdateContent()
+		{
+			if (_scrollView == null)
+				return;
+			
+			_scrollView.Clear();
 			
 			if (_selectedConfigs == null)
 			{
-				DrawNoConfigsMessage();
+				var warningBox = new HelpBox("No UiConfigs asset found. Please create one or assign it above.", HelpBoxMessageType.Warning);
+				_scrollView.Add(warningBox);
+				
+				var createButton = new Button(() => CreateNewUiConfigs()) { text = "Create New UiConfigs" };
+				createButton.style.marginLeft = 5;
+				createButton.style.marginRight = 5;
+				createButton.style.marginTop = 5;
+				_scrollView.Add(createButton);
 				return;
 			}
 
-			_scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-			
-			if (_showLayers)
-			{
-				DrawLayerHierarchy();
-			}
-			
-			EditorGUILayout.EndScrollView();
+			BuildLayerHierarchy();
 		}
 
-		private void DrawHeader()
+		private void BuildLayerHierarchy()
 		{
-			EditorGUILayout.Space(5);
-			
-			EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-			EditorGUILayout.LabelField("UI Layer Hierarchy Visualizer", EditorStyles.boldLabel);
-			
-			if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
-			{
-				AutoFindUiConfigs();
-			}
-			
-			EditorGUILayout.EndHorizontal();
-			
-			// Config selector
-			EditorGUILayout.BeginHorizontal();
-			EditorGUILayout.LabelField("UI Configs:", GUILayout.Width(80));
-			var newConfigs = (UiConfigs)EditorGUILayout.ObjectField(_selectedConfigs, typeof(UiConfigs), false);
-			if (newConfigs != _selectedConfigs)
-			{
-				_selectedConfigs = newConfigs;
-			}
-			EditorGUILayout.EndHorizontal();
-			
-			EditorGUILayout.Space(5);
-		}
-
-		private void DrawToolbar()
-		{
-			EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-			
-			_showLayers = GUILayout.Toggle(_showLayers, "Layer Hierarchy", EditorStyles.toolbarButton);
-			
-			GUILayout.FlexibleSpace();
-			
-			EditorGUILayout.LabelField("Search:", GUILayout.Width(50));
-			_searchFilter = EditorGUILayout.TextField(_searchFilter, EditorStyles.toolbarSearchField, GUILayout.Width(200));
-			
-			EditorGUILayout.EndHorizontal();
-		}
-
-		private void DrawNoConfigsMessage()
-		{
-			EditorGUILayout.HelpBox("No UiConfigs asset found. Please create one or assign it above.", MessageType.Warning);
-			
-			if (GUILayout.Button("Create New UiConfigs"))
-			{
-				CreateNewUiConfigs();
-			}
-		}
-
-		private void DrawLayerHierarchy()
-		{
-			EditorGUILayout.LabelField("Layer Hierarchy", EditorStyles.boldLabel);
+			var titleLabel = new Label("Layer Hierarchy");
+			titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			titleLabel.style.marginLeft = 5;
+			titleLabel.style.marginTop = 5;
+			titleLabel.style.marginBottom = 5;
+			_scrollView.Add(titleLabel);
 			
 			var configs = _selectedConfigs.Configs;
 			if (configs == null || configs.Count == 0)
 			{
-				EditorGUILayout.HelpBox("No UI configurations found", MessageType.Info);
+				var infoBox = new HelpBox("No UI configurations found", HelpBoxMessageType.Info);
+				_scrollView.Add(infoBox);
 				return;
 			}
 
@@ -124,18 +198,21 @@ namespace GameLoversEditor.UiService
 				.OrderBy(g => g.Key)
 				.ToList();
 
-			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+			var layersContainer = new VisualElement();
+			layersContainer.style.marginLeft = 5;
+			layersContainer.style.marginRight = 5;
 			
 			foreach (var layerGroup in layerGroups)
 			{
-				DrawLayer(layerGroup.Key, layerGroup.ToList());
+				var layerElement = CreateLayerElement(layerGroup.Key, layerGroup.ToList());
+				layersContainer.Add(layerElement);
 			}
 			
-			EditorGUILayout.EndVertical();
+			_scrollView.Add(layersContainer);
 			
 			// Statistics
-			EditorGUILayout.Space(10);
-			DrawStatistics(filteredConfigs);
+			var statsElement = CreateStatistics(filteredConfigs);
+			_scrollView.Add(statsElement);
 		}
 
 		private List<UiConfig> FilterConfigs(List<UiConfig> configs)
@@ -151,63 +228,139 @@ namespace GameLoversEditor.UiService
 			).ToList();
 		}
 
-		private void DrawLayer(int layer, List<UiConfig> configs)
+		private VisualElement CreateLayerElement(int layer, List<UiConfig> configs)
 		{
 			var layerColor = GetLayerColor(layer);
-			var backgroundColor = GUI.backgroundColor;
 			
-			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+			var container = new VisualElement();
+			container.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.3f);
+			container.style.borderTopLeftRadius = 4;
+			container.style.borderTopRightRadius = 4;
+			container.style.borderBottomLeftRadius = 4;
+			container.style.borderBottomRightRadius = 4;
+			container.style.marginBottom = 5;
+			container.style.paddingTop = 5;
+			container.style.paddingBottom = 5;
 			
 			// Layer header
-			GUI.backgroundColor = layerColor;
-			EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-			EditorGUILayout.LabelField($"Layer {layer}", EditorStyles.whiteLargeLabel, GUILayout.Width(100));
-			EditorGUILayout.LabelField($"({configs.Count} UI{(configs.Count > 1 ? "s" : "")})", EditorStyles.miniLabel);
-			GUILayout.FlexibleSpace();
-			EditorGUILayout.EndHorizontal();
-			GUI.backgroundColor = backgroundColor;
+			var header = new VisualElement();
+			header.style.flexDirection = FlexDirection.Row;
+			header.style.backgroundColor = layerColor;
+			header.style.paddingTop = 5;
+			header.style.paddingBottom = 5;
+			header.style.paddingLeft = 10;
+			header.style.paddingRight = 10;
+			header.style.marginBottom = 5;
+			header.style.alignItems = Align.Center;
+			
+			// Create text container with shadow for better readability
+			var textContainer = new VisualElement();
+			textContainer.style.flexDirection = FlexDirection.Row;
+			textContainer.style.backgroundColor = new Color(0, 0, 0, 0.5f); // Semi-transparent black background
+			textContainer.style.paddingLeft = 8;
+			textContainer.style.paddingRight = 8;
+			textContainer.style.paddingTop = 3;
+			textContainer.style.paddingBottom = 3;
+			textContainer.style.borderTopLeftRadius = 3;
+			textContainer.style.borderTopRightRadius = 3;
+			textContainer.style.borderBottomLeftRadius = 3;
+			textContainer.style.borderBottomRightRadius = 3;
+			
+			var layerLabel = new Label($"Layer {layer}");
+			layerLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			layerLabel.style.fontSize = 13;
+			layerLabel.style.color = Color.white;
+			layerLabel.style.textShadow = new TextShadow
+			{
+				offset = new Vector2(1, 1),
+				blurRadius = 2,
+				color = new Color(0, 0, 0, 0.8f)
+			};
+			textContainer.Add(layerLabel);
+			
+			var countLabel = new Label($"({configs.Count} UI{(configs.Count > 1 ? "s" : "")})");
+			countLabel.style.fontSize = 11;
+			countLabel.style.color = new Color(1f, 1f, 1f);
+			countLabel.style.marginLeft = 5;
+			countLabel.style.textShadow = new TextShadow
+			{
+				offset = new Vector2(1, 1),
+				blurRadius = 2,
+				color = new Color(0, 0, 0, 0.8f)
+			};
+			textContainer.Add(countLabel);
+			
+			header.Add(textContainer);
+			
+			container.Add(header);
 
 			// UI items in this layer
-			EditorGUI.indentLevel++;
 			foreach (var config in configs)
 			{
-				DrawUiConfigItem(config);
+				var configItem = CreateUiConfigItem(config);
+				container.Add(configItem);
 			}
-			EditorGUI.indentLevel--;
 			
-			EditorGUILayout.EndVertical();
-			EditorGUILayout.Space(5);
+			return container;
 		}
 
-		private void DrawUiConfigItem(UiConfig config)
+		private VisualElement CreateUiConfigItem(UiConfig config)
 		{
-			EditorGUILayout.BeginHorizontal();
+			var item = new VisualElement();
+			item.style.flexDirection = FlexDirection.Row;
+			item.style.paddingLeft = 20;
+			item.style.paddingRight = 10;
+			item.style.paddingTop = 2;
+			item.style.paddingBottom = 2;
 			
 			// Type name
-			EditorGUILayout.LabelField(config.UiType.Name, GUILayout.Width(200));
+			var typeLabel = new Label(config.UiType.Name);
+			typeLabel.style.width = 200;
+			item.Add(typeLabel);
 			
 			// Address
-			EditorGUILayout.LabelField(config.AddressableAddress, EditorStyles.miniLabel);
+			var addressLabel = new Label(config.AddressableAddress);
+			addressLabel.style.fontSize = 10;
+			addressLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
+			addressLabel.style.flexGrow = 1;
+			item.Add(addressLabel);
 			
 			// Sync indicator
 			if (config.LoadSynchronously)
 			{
-				EditorGUILayout.LabelField("[SYNC]", EditorStyles.boldLabel, GUILayout.Width(50));
+				var syncLabel = new Label("[SYNC]");
+				syncLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+				syncLabel.style.width = 50;
+				syncLabel.style.color = new Color(1, 0.8f, 0);
+				item.Add(syncLabel);
 			}
 			
-			EditorGUILayout.EndHorizontal();
+			return item;
 		}
 
-		private void DrawStatistics(List<UiConfig> configs)
+		private VisualElement CreateStatistics(List<UiConfig> configs)
 		{
-			EditorGUILayout.LabelField("Statistics", EditorStyles.boldLabel);
+			var container = new VisualElement();
+			container.style.marginTop = 10;
+			container.style.marginLeft = 5;
+			container.style.marginBottom = 10;
 			
-			EditorGUI.indentLevel++;
-			EditorGUILayout.LabelField($"Total UIs: {configs.Count}");
-			EditorGUILayout.LabelField($"Layers Used: {configs.Select(c => c.Layer).Distinct().Count()}");
-			EditorGUILayout.LabelField($"Synchronous Loads: {configs.Count(c => c.LoadSynchronously)}");
-			EditorGUILayout.LabelField($"Async Loads: {configs.Count(c => !c.LoadSynchronously)}");
-			EditorGUI.indentLevel--;
+			var titleLabel = new Label("Statistics");
+			titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			titleLabel.style.marginBottom = 5;
+			container.Add(titleLabel);
+			
+			var statsContainer = new VisualElement();
+			statsContainer.style.marginLeft = 15;
+			
+			statsContainer.Add(new Label($"Total UIs: {configs.Count}"));
+			statsContainer.Add(new Label($"Layers Used: {configs.Select(c => c.Layer).Distinct().Count()}"));
+			statsContainer.Add(new Label($"Synchronous Loads: {configs.Count(c => c.LoadSynchronously)}"));
+			statsContainer.Add(new Label($"Async Loads: {configs.Count(c => !c.LoadSynchronously)}"));
+			
+			container.Add(statsContainer);
+			
+			return container;
 		}
 
 		private void AutoFindUiConfigs()

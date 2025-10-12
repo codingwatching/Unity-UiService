@@ -1,5 +1,7 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
+using UnityEditor.UIElements;
 using GameLovers.UiService;
 
 // ReSharper disable once CheckNamespace
@@ -12,75 +14,175 @@ namespace GameLoversEditor.UiService
 	[CustomEditor(typeof(UiPresenter), true)]
 	public class UiPresenterEditor : Editor
 	{
-		public override void OnInspectorGUI()
+		private Label _statusLabel;
+		private VisualElement _statusIndicator;
+		private VisualElement _controlsContainer;
+
+		public override VisualElement CreateInspectorGUI()
 		{
-			DrawDefaultInspector();
+			var root = new VisualElement();
 			
-			EditorGUILayout.Space(10);
-			EditorGUILayout.LabelField("UI Presenter Controls", EditorStyles.boldLabel);
+			// Draw default inspector
+			InspectorElement.FillDefaultInspector(root, serializedObject, this);
 			
-			var presenter = (UiPresenter)target;
+			// Add spacing
+			root.Add(CreateSpacer(10));
+			
+			// Controls section header
+			var header = new Label("UI Presenter Controls");
+			header.style.unityFontStyleAndWeight = FontStyle.Bold;
+			header.style.fontSize = 12;
+			root.Add(header);
+			
+			root.Add(CreateSpacer(5));
 			
 			// Status display
-			EditorGUILayout.BeginHorizontal();
-			EditorGUILayout.LabelField("Status:", GUILayout.Width(100));
+			var statusRow = CreateStatusDisplay();
+			root.Add(statusRow);
 			
-			var statusColor = presenter.IsOpen ? Color.green : Color.red;
-			var originalColor = GUI.backgroundColor;
-			GUI.backgroundColor = statusColor;
+			root.Add(CreateSpacer(5));
 			
-			EditorGUILayout.LabelField(presenter.IsOpen ? "OPEN" : "CLOSED", EditorStyles.boldLabel);
-			GUI.backgroundColor = originalColor;
+			// Controls container (will be populated based on play mode)
+			_controlsContainer = new VisualElement();
+			root.Add(_controlsContainer);
 			
-			EditorGUILayout.EndHorizontal();
+			// Update controls based on play mode
+			UpdateControls();
 			
-			// Play mode controls
+			// Schedule periodic updates in play mode
+			root.schedule.Execute(() =>
+			{
+				if (target != null)
+				{
+					UpdateStatusDisplay();
+				}
+			}).Every(100);
+			
+			return root;
+		}
+
+		private VisualElement CreateStatusDisplay()
+		{
+			var container = new VisualElement();
+			container.style.flexDirection = FlexDirection.Row;
+			container.style.alignItems = Align.Center;
+			
+			var statusLabel = new Label("Status:");
+			statusLabel.style.width = 100;
+			container.Add(statusLabel);
+			
+			// Status indicator circle
+			_statusIndicator = new VisualElement();
+			_statusIndicator.style.width = 12;
+			_statusIndicator.style.height = 12;
+			_statusIndicator.style.borderTopLeftRadius = 6;
+			_statusIndicator.style.borderTopRightRadius = 6;
+			_statusIndicator.style.borderBottomLeftRadius = 6;
+			_statusIndicator.style.borderBottomRightRadius = 6;
+			_statusIndicator.style.marginRight = 5;
+			container.Add(_statusIndicator);
+			
+			// Status text
+			_statusLabel = new Label();
+			_statusLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			container.Add(_statusLabel);
+			
+			UpdateStatusDisplay();
+			
+			return container;
+		}
+
+		private void UpdateStatusDisplay()
+		{
+			var presenter = (UiPresenter)target;
+			if (presenter == null)
+				return;
+			
+			var isOpen = presenter.IsOpen;
+			_statusLabel.text = isOpen ? "OPEN" : "CLOSED";
+			_statusIndicator.style.backgroundColor = isOpen ? new Color(0, 1, 0) : new Color(1, 0, 0);
+		}
+
+		private void UpdateControls()
+		{
+			_controlsContainer.Clear();
+			
+			var presenter = (UiPresenter)target;
+			if (presenter == null)
+				return;
+			
 			if (Application.isPlaying)
 			{
-				DrawPlayModeControls(presenter);
+				CreatePlayModeControls();
 			}
 			else
 			{
-				EditorGUILayout.HelpBox("UI controls are only available in Play Mode", MessageType.Info);
+				var helpBox = new HelpBox("UI controls are only available in Play Mode", HelpBoxMessageType.Info);
+				_controlsContainer.Add(helpBox);
 			}
 		}
 
-		private void DrawPlayModeControls(UiPresenter presenter)
+		private void CreatePlayModeControls()
 		{
-			EditorGUILayout.Space(5);
+			var presenter = (UiPresenter)target;
 			
-			EditorGUILayout.BeginHorizontal();
+			_controlsContainer.Add(CreateSpacer(5));
 			
-			if (GUILayout.Button("Open UI", GUILayout.Height(30)))
-			{
-				// In play mode, we need to activate directly since service might not be initialized
-				presenter.gameObject.SetActive(true);
-			}
+			// First row of buttons
+			var row1 = new VisualElement();
+			row1.style.flexDirection = FlexDirection.Row;
 			
-			if (GUILayout.Button("Close UI", GUILayout.Height(30)))
-			{
-				presenter.gameObject.SetActive(false);
-			}
+			var openButton = new Button(() => presenter.gameObject.SetActive(true)) { text = "Open UI" };
+			openButton.style.flexGrow = 1;
+			openButton.style.height = 30;
+			row1.Add(openButton);
 			
-			EditorGUILayout.EndHorizontal();
+			var closeButton = new Button(() => presenter.gameObject.SetActive(false)) { text = "Close UI" };
+			closeButton.style.flexGrow = 1;
+			closeButton.style.height = 30;
+			closeButton.style.marginLeft = 5;
+			row1.Add(closeButton);
 			
-			EditorGUILayout.BeginHorizontal();
+			_controlsContainer.Add(row1);
+			_controlsContainer.Add(CreateSpacer(5));
 			
-			if (GUILayout.Button("Close (No Destroy)", GUILayout.Height(25)))
-			{
-				presenter.gameObject.SetActive(false);
-			}
-			
-			if (GUILayout.Button("Close (Destroy)", GUILayout.Height(25)))
+			// Destroy button
+			var closeDestroyButton = new Button(() =>
 			{
 				if (EditorUtility.DisplayDialog("Destroy UI", 
 					"Are you sure you want to destroy this UI?", "Yes", "Cancel"))
 				{
 					DestroyImmediate(presenter.gameObject);
 				}
-			}
+			}) { text = "Close & Destroy" };
+			closeDestroyButton.style.height = 25;
 			
-			EditorGUILayout.EndHorizontal();
+			_controlsContainer.Add(closeDestroyButton);
+		}
+
+		private VisualElement CreateSpacer(int height)
+		{
+			var spacer = new VisualElement();
+			spacer.style.height = height;
+			return spacer;
+		}
+
+		private void OnEnable()
+		{
+			EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+		}
+
+		private void OnDisable()
+		{
+			EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+		}
+
+		private void OnPlayModeStateChanged(PlayModeStateChange state)
+		{
+			if (_controlsContainer != null)
+			{
+				UpdateControls();
+			}
 		}
 	}
 }

@@ -1,6 +1,7 @@
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 using GameLovers.UiService;
 
 // ReSharper disable once CheckNamespace
@@ -15,10 +16,13 @@ namespace GameLoversEditor.UiService
 	/// </summary>
 	public class UiAnalyticsWindow : EditorWindow
 	{
-		private Vector2 _scrollPosition;
 		private bool _autoRefresh = true;
 		private double _lastRefreshTime;
 		private const double RefreshInterval = 1.0; // seconds
+		
+		private ScrollView _scrollView;
+		private VisualElement _contentContainer;
+		private Label _footerStats;
 
 		[MenuItem("Tools/UI Service/Analytics")]
 		public static void ShowWindow()
@@ -42,73 +46,110 @@ namespace GameLoversEditor.UiService
 
 		private void OnPlayModeStateChanged(PlayModeStateChange state)
 		{
-			Repaint();
+			if (rootVisualElement != null)
+			{
+				UpdateContent();
+			}
 		}
 
-		// ReSharper disable once UnusedMember.Local
-		private void OnGUI()
+		private void CreateGUI()
 		{
-			DrawHeader();
+			var root = rootVisualElement;
+			root.Clear();
+			
+			// Header
+			var header = CreateHeader();
+			root.Add(header);
+			
+			// Content container
+			_contentContainer = new VisualElement();
+			root.Add(_contentContainer);
+			
+			// Scroll view
+			_scrollView = new ScrollView();
+			_scrollView.style.flexGrow = 1;
+			_contentContainer.Add(_scrollView);
+			
+			// Footer
+			var footer = CreateFooter();
+			root.Add(footer);
+			
+			// Update content
+			UpdateContent();
+			
+			// Schedule periodic updates
+			root.schedule.Execute(() =>
+			{
+				if (_autoRefresh && Application.isPlaying && EditorApplication.timeSinceStartup - _lastRefreshTime > RefreshInterval)
+				{
+					_lastRefreshTime = EditorApplication.timeSinceStartup;
+					UpdateContent();
+				}
+			}).Every(100);
+		}
+
+		private VisualElement CreateHeader()
+		{
+			var header = new VisualElement();
+			header.style.flexDirection = FlexDirection.Row;
+			header.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+			header.style.paddingTop = 5;
+			header.style.paddingBottom = 5;
+			header.style.paddingLeft = 5;
+			header.style.paddingRight = 5;
+			header.style.marginBottom = 5;
+			
+			var titleLabel = new Label("UI Service Analytics");
+			titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			titleLabel.style.flexGrow = 1;
+			header.Add(titleLabel);
+			
+			// Auto refresh toggle
+			var autoRefreshToggle = new Toggle("Auto Refresh") { value = _autoRefresh };
+			autoRefreshToggle.RegisterValueChangedCallback(evt => _autoRefresh = evt.newValue);
+			autoRefreshToggle.style.width = 110;
+			header.Add(autoRefreshToggle);
+			
+			// Refresh button
+			var refreshButton = new Button(() => UpdateContent()) { text = "Refresh" };
+			refreshButton.style.width = 60;
+			refreshButton.style.marginLeft = 5;
+			header.Add(refreshButton);
+			
+			// Clear button
+			var clearButton = new Button(() => GetCurrentAnalytics()?.Clear()) { text = "Clear" };
+			clearButton.style.width = 50;
+			clearButton.style.marginLeft = 5;
+			header.Add(clearButton);
+			
+			return header;
+		}
+
+		private void UpdateContent()
+		{
+			if (_scrollView == null)
+				return;
+			
+			_scrollView.Clear();
 			
 			if (!Application.isPlaying)
 			{
-				DrawNotPlayingMessage();
+				var helpBox = new HelpBox(
+					"UI Analytics is only available in Play Mode.\n\n" +
+					"Enter Play Mode to see performance metrics and event tracking.",
+					HelpBoxMessageType.Info);
+				_scrollView.Add(helpBox);
+				UpdateFooter();
 				return;
 			}
 
-			if (_autoRefresh && EditorApplication.timeSinceStartup - _lastRefreshTime > RefreshInterval)
-			{
-				_lastRefreshTime = EditorApplication.timeSinceStartup;
-				Repaint();
-			}
-
-			_scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-			
-			DrawAnalyticsData();
-			
-			EditorGUILayout.EndScrollView();
-			
-			DrawFooter();
-		}
-
-		private void DrawHeader()
-		{
-			EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-			EditorGUILayout.LabelField("UI Service Analytics", EditorStyles.boldLabel);
-			
-			GUILayout.FlexibleSpace();
-			
-			_autoRefresh = GUILayout.Toggle(_autoRefresh, "Auto Refresh", EditorStyles.toolbarButton, GUILayout.Width(100));
-			
-			if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
-			{
-				Repaint();
-			}
-			
-			if (GUILayout.Button("Clear", EditorStyles.toolbarButton, GUILayout.Width(50)))
-			{
-				GetCurrentAnalytics()?.Clear();
-			}
-			
-			EditorGUILayout.EndHorizontal();
-			EditorGUILayout.Space(5);
-		}
-
-		private void DrawNotPlayingMessage()
-		{
-			EditorGUILayout.HelpBox(
-				"UI Analytics is only available in Play Mode.\n\n" +
-				"Enter Play Mode to see performance metrics and event tracking.",
-				MessageType.Info);
-		}
-
-		private void DrawAnalyticsData()
-		{
 			var analytics = GetCurrentAnalytics();
 			
 			if (analytics == null)
 			{
-				EditorGUILayout.HelpBox("No UiService instance found. Create a UiService to enable analytics tracking.", MessageType.Warning);
+				var warningBox = new HelpBox("No UiService instance found. Create a UiService to enable analytics tracking.", HelpBoxMessageType.Warning);
+				_scrollView.Add(warningBox);
+				UpdateFooter();
 				return;
 			}
 			
@@ -116,77 +157,123 @@ namespace GameLoversEditor.UiService
 			
 			if (metrics.Count == 0)
 			{
-				EditorGUILayout.HelpBox("No analytics data collected yet. Use the UI Service to generate data.", MessageType.Info);
+				var infoBox = new HelpBox("No analytics data collected yet. Use the UI Service to generate data.", HelpBoxMessageType.Info);
+				_scrollView.Add(infoBox);
+				UpdateFooter();
 				return;
 			}
 
-			EditorGUILayout.LabelField($"Tracked UIs: {metrics.Count}", EditorStyles.boldLabel);
-			EditorGUILayout.Space(5);
+			var trackedLabel = new Label($"Tracked UIs: {metrics.Count}");
+			trackedLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			trackedLabel.style.marginBottom = 5;
+			trackedLabel.style.marginLeft = 5;
+			_scrollView.Add(trackedLabel);
 
 			// Sort by total lifetime
 			var sortedMetrics = metrics.Values.OrderByDescending(m => m.TotalLifetime).ToList();
 
 			foreach (var metric in sortedMetrics)
 			{
-				DrawMetricCard(metric);
+				var card = CreateMetricCard(metric);
+				_scrollView.Add(card);
 			}
+			
+			UpdateFooter();
 		}
 
-		private void DrawMetricCard(UiPerformanceMetrics metric)
+		private VisualElement CreateMetricCard(UiPerformanceMetrics metric)
 		{
-			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+			var card = new VisualElement();
+			card.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.3f);
+			card.style.borderTopLeftRadius = 4;
+			card.style.borderTopRightRadius = 4;
+			card.style.borderBottomLeftRadius = 4;
+			card.style.borderBottomRightRadius = 4;
+			card.style.marginLeft = 5;
+			card.style.marginRight = 5;
+			card.style.marginBottom = 5;
+			card.style.paddingTop = 8;
+			card.style.paddingBottom = 8;
+			card.style.paddingLeft = 10;
+			card.style.paddingRight = 10;
 			
 			// Header
-			EditorGUILayout.LabelField(metric.UiName, EditorStyles.boldLabel);
-			EditorGUILayout.Space(5);
+			var header = new Label(metric.UiName);
+			header.style.unityFontStyleAndWeight = FontStyle.Bold;
+			header.style.fontSize = 13;
+			header.style.marginBottom = 8;
+			card.Add(header);
 			
 			// Performance metrics
-			EditorGUI.indentLevel++;
+			card.Add(CreateMetricRow("Load Duration:", $"{metric.LoadDuration:F3}s", GetLoadColor(metric.LoadDuration)));
+			card.Add(CreateMetricRow("Open Duration:", $"{metric.OpenDuration:F3}s", GetOpenColor(metric.OpenDuration)));
+			card.Add(CreateMetricRow("Close Duration:", $"{metric.CloseDuration:F3}s", GetCloseColor(metric.CloseDuration)));
 			
-			DrawMetricRow("Load Duration:", $"{metric.LoadDuration:F3}s", GetLoadColor(metric.LoadDuration));
-			DrawMetricRow("Open Duration:", $"{metric.OpenDuration:F3}s", GetOpenColor(metric.OpenDuration));
-			DrawMetricRow("Close Duration:", $"{metric.CloseDuration:F3}s", GetCloseColor(metric.CloseDuration));
+			card.Add(CreateSpacer(5));
 			
-			EditorGUILayout.Space(5);
-			
-			DrawMetricRow("Open Count:", metric.OpenCount.ToString(), Color.white);
-			DrawMetricRow("Close Count:", metric.CloseCount.ToString(), Color.white);
-			DrawMetricRow("Total Lifetime:", $"{metric.TotalLifetime:F1}s", Color.cyan);
+			card.Add(CreateMetricRow("Open Count:", metric.OpenCount.ToString(), Color.white));
+			card.Add(CreateMetricRow("Close Count:", metric.CloseCount.ToString(), Color.white));
+			card.Add(CreateMetricRow("Total Lifetime:", $"{metric.TotalLifetime:F1}s", Color.cyan));
 			
 			if (metric.FirstOpened != System.DateTime.MinValue)
 			{
-				EditorGUILayout.Space(5);
-				DrawMetricRow("First Opened:", metric.FirstOpened.ToString("HH:mm:ss"), Color.white);
+				card.Add(CreateSpacer(5));
+				card.Add(CreateMetricRow("First Opened:", metric.FirstOpened.ToString("HH:mm:ss"), Color.white));
 			}
 			
 			if (metric.LastClosed != System.DateTime.MinValue)
 			{
-				DrawMetricRow("Last Closed:", metric.LastClosed.ToString("HH:mm:ss"), Color.white);
+				card.Add(CreateMetricRow("Last Closed:", metric.LastClosed.ToString("HH:mm:ss"), Color.white));
 			}
 			
-			EditorGUI.indentLevel--;
-			
-			EditorGUILayout.EndVertical();
-			EditorGUILayout.Space(5);
+			return card;
 		}
 
-		private void DrawMetricRow(string label, string value, Color color)
+		private VisualElement CreateMetricRow(string label, string value, Color color)
 		{
-			EditorGUILayout.BeginHorizontal();
-			EditorGUILayout.LabelField(label, GUILayout.Width(150));
+			var row = new VisualElement();
+			row.style.flexDirection = FlexDirection.Row;
+			row.style.marginBottom = 2;
 			
-			var originalColor = GUI.contentColor;
-			GUI.contentColor = color;
-			EditorGUILayout.LabelField(value, EditorStyles.boldLabel);
-			GUI.contentColor = originalColor;
+			var labelElement = new Label(label);
+			labelElement.style.width = 150;
+			labelElement.style.marginLeft = 10;
+			row.Add(labelElement);
 			
-			EditorGUILayout.EndHorizontal();
+			var valueElement = new Label(value);
+			valueElement.style.unityFontStyleAndWeight = FontStyle.Bold;
+			valueElement.style.color = color;
+			row.Add(valueElement);
+			
+			return row;
 		}
 
-		private void DrawFooter()
+		private VisualElement CreateFooter()
 		{
-			EditorGUILayout.Space(5);
-			EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+			var footer = new VisualElement();
+			footer.style.flexDirection = FlexDirection.Row;
+			footer.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+			footer.style.paddingTop = 5;
+			footer.style.paddingBottom = 5;
+			footer.style.paddingLeft = 5;
+			footer.style.paddingRight = 5;
+			footer.style.marginTop = 5;
+			
+			_footerStats = new Label();
+			_footerStats.style.flexGrow = 1;
+			footer.Add(_footerStats);
+			
+			var logButton = new Button(() => GetCurrentAnalytics()?.LogPerformanceSummary()) { text = "Log Summary" };
+			logButton.style.width = 100;
+			footer.Add(logButton);
+			
+			return footer;
+		}
+
+		private void UpdateFooter()
+		{
+			if (_footerStats == null)
+				return;
 			
 			var analytics = GetCurrentAnalytics();
 			if (analytics != null)
@@ -196,18 +283,24 @@ namespace GameLoversEditor.UiService
 				{
 					var totalOpens = metrics.Values.Sum(m => m.OpenCount);
 					var totalCloses = metrics.Values.Sum(m => m.CloseCount);
-					EditorGUILayout.LabelField($"Total Opens: {totalOpens} | Total Closes: {totalCloses}");
+					_footerStats.text = $"Total Opens: {totalOpens} | Total Closes: {totalCloses}";
+				}
+				else
+				{
+					_footerStats.text = "";
 				}
 			}
-			
-			GUILayout.FlexibleSpace();
-			
-			if (GUILayout.Button("Log Summary", EditorStyles.toolbarButton))
+			else
 			{
-				GetCurrentAnalytics()?.LogPerformanceSummary();
+				_footerStats.text = "";
 			}
-			
-			EditorGUILayout.EndHorizontal();
+		}
+
+		private VisualElement CreateSpacer(int height)
+		{
+			var spacer = new VisualElement();
+			spacer.style.height = height;
+			return spacer;
 		}
 
 		/// <summary>

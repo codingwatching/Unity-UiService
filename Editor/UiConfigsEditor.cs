@@ -344,23 +344,6 @@ namespace GameLoversEditor.UiService
 				// Bind to the property - this handles change tracking automatically
 				dropdown.BindProperty(itemProperty);
 			}
-			
-			// Wire up delete button
-			var deleteButton = element.Q<Button>("delete-button");
-			if (deleteButton != null)
-			{
-				// Remove previous click handlers to avoid stacking
-				deleteButton.UnregisterCallback<ClickEvent>(_ => OnDeleteButtonClicked(uiConfigsTypeProperty, index, listView));
-				deleteButton.RegisterCallback<ClickEvent>(_ => OnDeleteButtonClicked(uiConfigsTypeProperty, index, listView));
-			}
-		}
-
-		private void OnDeleteButtonClicked(SerializedProperty uiConfigsTypeProperty, int index, ListView listView)
-		{
-			uiConfigsTypeProperty.DeleteArrayElementAtIndex(index);
-			uiConfigsTypeProperty.serializedObject.ApplyModifiedProperties();
-			listView.RefreshItems();
-			SaveSetChanges();
 		}
 
 		private void OnPresenterItemsAdded(IEnumerable<int> indices, SerializedProperty uiConfigsTypeProperty)
