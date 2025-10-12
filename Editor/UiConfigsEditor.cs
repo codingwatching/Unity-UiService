@@ -4,7 +4,7 @@ using GameLovers.UiService;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
-using UnityEditorInternal;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -53,221 +53,359 @@ namespace GameLoversEditor.UiService
 	public abstract class UiConfigsEditor<TSet> : Editor
 		where TSet : Enum
 	{
-		private readonly List<string> _assetsPath = new List<string>();
-		private readonly List<string> _uiConfigsType = new List<string>();
-		private readonly List<ReorderableList> _setsConfigsList = new List<ReorderableList>();
-		private readonly GUIContent _uiConfigGuiContent = new GUIContent("Ui Config",
-			"All the Addressable addresses for every UiPresenter in the game.\n" +
-			"The second field is the layer where the UiPresenter should be shown. " +
-			"The higher the value, the closer is the UiPresenter to the camera.\n" +
-			"If the UiPresenter contains a Canvas/UIDocument in the root, the layer value is the same of the UI sorting order");
-		private readonly GUIContent _uiSetConfigGuiContent = new GUIContent("Ui Set",
-			"All the Ui Sets in the game.\n" +
-			"A UiSet groups a list of UiConfigs and shows them all at the same time via the UiService.\n" +
-			"The UiConfigs are all loaded in the order they are configured. Top = first; Bottom = Last");
+		private const string UiConfigExplanation = 
+			"UI Presenter Configurations\n\n" +
+			"Lists all Addressable UI Presenter prefabs in the game with their sorting layer values. " +
+			"The Layer field controls the rendering order - higher values appear closer to the camera. " +
+			"For presenters with Canvas or UIDocument components, this value directly maps to the UI sorting order.";
 
+		private const string UiSetExplanation =
+			"UI Set Configurations\n\n" +
+			"UI Sets group multiple presenters that should be displayed together. " +
+			"When a set is activated via UiService, all its presenters are loaded and shown simultaneously. " +
+			"Presenters are loaded in the order listed (top to bottom).";
+
+		private Dictionary<string, string> _assetPathLookup;
+		private List<string> _uiConfigsType;
 		private string[] _uiConfigsAddress;
+		private UiConfigs _scriptableObject;
 		private SerializedProperty _configsProperty;
 		private SerializedProperty _setsProperty;
-		private ReorderableList _configList;
-		private ReorderableList _setList;
-		private bool _resetValues;
-		private UiConfigs _scriptableObject;
 
 		private void OnEnable()
 		{
-			_resetValues = false;
-
-			InitConfigValues();
-			InitReorderableLists();
-
-			_setList.drawHeaderCallback = rect => EditorGUI.LabelField(rect, $"Ui {nameof(UiConfigs.Sets)}");
-			_setList.elementHeightCallback = index => _setsConfigsList[index].GetHeight();
-			_setList.drawElementCallback = (rect, index, active, focused) => _setsConfigsList[index].DoList(rect);
-			_configList.drawHeaderCallback = rect => EditorGUI.LabelField(rect, $"Ui {nameof(UiConfigs.Configs)}");
-			_configList.drawElementCallback = DrawUiConfigElement;
-		}
-
-		/// <inheritdoc />
-		public override void OnInspectorGUI()
-		{
-			serializedObject.Update();
-
-			EditorGUILayout.Space();
-			EditorGUILayout.HelpBox(_uiConfigGuiContent.tooltip, MessageType.Info);
-			_configList.DoLayoutList();
-			EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
-			EditorGUILayout.Space();
-			EditorGUILayout.HelpBox(_uiSetConfigGuiContent.tooltip, MessageType.Info);
-			_setList.DoLayoutList();
-
-			serializedObject.ApplyModifiedProperties();
-
-			if (_resetValues)
-			{
-				OnEnable();
-			}
-		}
-
-		private void InitConfigValues()
-		{
-			var assetList = GetAssetList();
-			var gameObjectType = typeof(GameObject);
-			var uiConfigsAddress = new List<string>();
-			var configs = new List<UiConfig>();
 			_scriptableObject = target as UiConfigs;
-
-			_uiConfigsType.Clear();
-			_assetsPath.Clear();
-
 			if (_scriptableObject == null)
-			{
-				throw new NullReferenceException($"The Object is not of type {nameof(UiConfigs)}");
-			}
-
-			var configsCache = _scriptableObject.Configs;
-
-			for (int i = 0; i < assetList.Count; i++)
-			{
-				var assetAddress = assetList[i].address;
-
-				if (AssetDatabase.GetMainAssetTypeAtPath(assetList[i].AssetPath) != gameObjectType)
-				{
-					continue;
-				}
-
-				var uiPresenter = AssetDatabase.LoadAssetAtPath<UiPresenter>(assetList[i].AssetPath);
-
-				if (uiPresenter == null)
-				{
-					continue;
-				}
-
-				_assetsPath.Add(assetList[i].AssetPath);
-
-				var sortingOrder = -1;
-				if (uiPresenter.TryGetComponent<Canvas>(out var canvas))
-				{
-					sortingOrder = canvas.sortingOrder;
-				}
-				else if (uiPresenter.TryGetComponent<UIDocument>(out var document))
-				{
-					sortingOrder = (int) document.sortingOrder;
-				}
-				
-				var indexMatch = configsCache.FindIndex(configCheck => configCheck.AddressableAddress == assetAddress);
-				var type = uiPresenter.GetType();
-				var config = new UiConfig
-				{
-					AddressableAddress = assetList[i].address,
-					Layer = sortingOrder < 0 ? 0 : sortingOrder,
-					UiType = type,
-					LoadSynchronously = Attribute.IsDefined(type, typeof(LoadSynchronouslyAttribute))
-				};
-
-				// Always add to dropdown arrays (for both new and existing configs)
-				uiConfigsAddress.Add(config.AddressableAddress);
-				_uiConfigsType.Add(config.UiType.AssemblyQualifiedName);
-
-				// Preserve custom layer value for existing configs
-				if (indexMatch > -1)
-				{
-					config.Layer = sortingOrder < 0 ? configsCache[indexMatch].Layer : config.Layer;
-				}
-
-				configs.Add(config);
-			}
-
-			_scriptableObject.Configs = configs;
-			_uiConfigsAddress = uiConfigsAddress.ToArray();
-
-			EditorUtility.SetDirty(_scriptableObject);
-			AssetDatabase.SaveAssets();
-			Resources.UnloadUnusedAssets();
-		}
-
-		private void InitReorderableLists()
-		{
-			var enumNames = Enum.GetNames(typeof(TSet));
-			var scriptableObject = target as UiConfigs;
-
-			if (scriptableObject == null)
-			{
-				throw new NullReferenceException($"The Object is not of type {nameof(UiConfigs)}");
-			}
-
-			scriptableObject.SetSetsSize(Enum.GetNames(typeof(TSet)).Length);
-
-			_configsProperty = serializedObject.FindProperty("_configs");
-			_setsProperty = serializedObject.FindProperty("_sets");
-			_configList = new ReorderableList(serializedObject, _configsProperty, false, true, false, false);
-			_setList = new ReorderableList(serializedObject, _setsProperty, false, true, false, false);
-
-			_setsConfigsList.Clear();
-			_setsConfigsList.Capacity = enumNames.Length;
-			_configList.onChangedCallback = reorderableList => _resetValues = true;
-
-			for (int i = 0; i < enumNames.Length; i++)
-			{
-				var property = _setsProperty.GetArrayElementAtIndex(i).FindPropertyRelative($"{nameof(UiConfigs.UiSetConfigSerializable.UiConfigsType)}");
-				var enumName = enumNames[i];
-				var list = new ReorderableList(serializedObject, property, true, true, true, true);
-
-				list.drawHeaderCallback = rect => EditorGUI.LabelField(rect, $"{enumName} Set");
-				list.onCanAddCallback = reorderableList => _configList.count > 0;
-				list.drawElementCallback = (rect, index, active, focused) =>
-				{
-					var serializedProperty = property.GetArrayElementAtIndex(index);
-					var typeIndex = string.IsNullOrEmpty(serializedProperty.stringValue) ?
-						0 : _uiConfigsType.FindIndex(type => type == serializedProperty.stringValue);
-
-					serializedProperty.stringValue = _uiConfigsType[EditorGUI.Popup(rect, typeIndex, _uiConfigsAddress)];
-				};
-
-				_setsConfigsList.Add(list);
-			}
-		}
-
-		private void DrawUiConfigElement(Rect rect, int index, bool isActive, bool isFocused)
-		{
-			const int layerRectWidth = 100;
-
-			var addressRect = new Rect(rect.x, rect.y, rect.width - layerRectWidth - 5, rect.height);
-			var layerRect = new Rect(addressRect.xMax + 5, rect.y, layerRectWidth, rect.height);
-			var arrayElement = _configsProperty.GetArrayElementAtIndex(index);
-			var address = arrayElement.FindPropertyRelative($"{nameof(UiConfig.AddressableAddress)}");
-			var layer = arrayElement.FindPropertyRelative($"{nameof(UiConfig.Layer)}");
-			var previousLayer = layer.intValue;
-
-			_uiConfigGuiContent.text = address.stringValue;
-
-			EditorGUI.LabelField(addressRect, _uiConfigGuiContent);
-			var newLayer = EditorGUI.IntField(layerRect, previousLayer);
-
-			if (newLayer == previousLayer)
 			{
 				return;
 			}
 
-			layer.intValue = newLayer;
+			SyncConfigsWithAddressables();
+			
+			_configsProperty = serializedObject.FindProperty("_configs");
+			_setsProperty = serializedObject.FindProperty("_sets");
+			
+			// Ensure sets array matches enum size
+			_scriptableObject.SetSetsSize(Enum.GetNames(typeof(TSet)).Length);
+		}
 
-			var ui = AssetDatabase.LoadAssetAtPath<GameObject>(_assetsPath[index]);
-			if (ui.TryGetComponent<Canvas>(out var canvas))
+		/// <inheritdoc />
+		public override VisualElement CreateInspectorGUI()
+		{
+			var root = new VisualElement();
+			root.style.paddingTop = 5;
+			root.style.paddingBottom = 5;
+			root.style.paddingLeft = 3;
+			root.style.paddingRight = 3;
+
+			// Section 1: UI Config Explanation
+			var configHelpBox = new HelpBox(UiConfigExplanation, HelpBoxMessageType.Info);
+			configHelpBox.style.marginBottom = 10;
+			root.Add(configHelpBox);
+
+			// Section 2: UI Configs List
+			var configsListView = CreateConfigsListView();
+			root.Add(configsListView);
+
+			// Section 3: Separator
+			var separator = new VisualElement();
+			separator.style.height = 1;
+			separator.style.backgroundColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+			separator.style.marginTop = 15;
+			separator.style.marginBottom = 15;
+			root.Add(separator);
+
+			// Section 4: UI Set Explanation
+			var setHelpBox = new HelpBox(UiSetExplanation, HelpBoxMessageType.Info);
+			setHelpBox.style.marginBottom = 10;
+			root.Add(setHelpBox);
+
+			// Section 5: UI Sets List
+			var setsContainer = CreateSetsContainer();
+			root.Add(setsContainer);
+
+			return root;
+		}
+
+		private ListView CreateConfigsListView()
+		{
+			var listView = new ListView
+			{
+				showBorder = true,
+				showFoldoutHeader = true,
+				headerTitle = "UI Presenter Configs",
+				showAddRemoveFooter = false,
+				showBoundCollectionSize = false,
+				reorderable = false,
+				virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
+				fixedItemHeight = 22
+			};
+
+			listView.style.minHeight = 20;
+			listView.style.marginBottom = 5;
+
+			listView.BindProperty(_configsProperty);
+
+			listView.makeItem = CreateConfigElement;
+			listView.bindItem = BindConfigElement;
+
+			return listView;
+		}
+
+		private void BindConfigElement(VisualElement element, int index)
+		{
+			if (index >= _configsProperty.arraySize)
+				return;
+
+			var itemProperty = _configsProperty.GetArrayElementAtIndex(index);
+			var addressProperty = itemProperty.FindPropertyRelative(nameof(UiConfigs.UiConfigSerializable.AddressableAddress));
+			var layerProperty = itemProperty.FindPropertyRelative(nameof(UiConfigs.UiConfigSerializable.Layer));
+
+			var label = element.Q<Label>();
+			var layerField = element.Q<IntegerField>();
+
+			label.text = addressProperty.stringValue;
+			layerField.value = layerProperty.intValue;
+
+			// Handle layer changes
+			layerField.RegisterValueChangedCallback(evt => OnLayerChanged(evt, addressProperty, layerProperty));
+		}
+
+		private void OnLayerChanged(ChangeEvent<int> evt, SerializedProperty addressProperty, SerializedProperty layerProperty)
+		{
+			if (evt.newValue == evt.previousValue)
+				return;
+
+			layerProperty.intValue = evt.newValue;
+			layerProperty.serializedObject.ApplyModifiedProperties();
+
+			// Sync with Canvas/UIDocument sorting order
+			SyncLayerToPrefab(addressProperty.stringValue, evt.newValue);
+		}
+
+		private VisualElement CreateSetsContainer()
+		{
+			var container = new VisualElement();
+			var enumNames = Enum.GetNames(typeof(TSet));
+
+			for (int setIndex = 0; setIndex < enumNames.Length; setIndex++)
+			{
+				var setElement = CreateSetElement(enumNames[setIndex], setIndex);
+				container.Add(setElement);
+			}
+
+			return container;
+		}
+
+		private VisualElement CreateConfigElement()
+		{
+			var container = new VisualElement();
+			container.style.flexDirection = FlexDirection.Row;
+			container.style.alignItems = Align.Center;
+			container.style.paddingTop = 2;
+			container.style.paddingBottom = 2;
+
+			var label = new Label();
+			label.style.flexGrow = 1;
+			label.style.paddingLeft = 5;
+			label.style.unityTextAlign = TextAnchor.MiddleLeft;
+			container.Add(label);
+
+			var layerField = new IntegerField();
+			layerField.style.width = 80;
+			layerField.style.marginRight = 5;
+			container.Add(layerField);
+
+			return container;
+		}
+
+		private VisualElement CreateSetPresenterElement()
+		{
+			var dropdown = new DropdownField();
+			dropdown.choices = new List<string>(_uiConfigsAddress ?? new string[0]);
+			dropdown.style.flexGrow = 1;
+			dropdown.style.paddingTop = 3;
+			dropdown.style.paddingBottom = 3;
+			dropdown.style.marginLeft = 3;
+			dropdown.style.marginRight = 3;
+			return dropdown;
+		}
+
+		private void BindSetPresenterElement(VisualElement element, int index, SerializedProperty uiConfigsTypeProperty)
+		{
+			if (index >= uiConfigsTypeProperty.arraySize)
+				return;
+
+			var dropdown = element as DropdownField;
+			if (dropdown == null)
+				return;
+
+			var itemProperty = uiConfigsTypeProperty.GetArrayElementAtIndex(index);
+			
+			// Find the index in our type list
+			var currentType = itemProperty.stringValue;
+			var selectedIndex = string.IsNullOrEmpty(currentType) ? 0 : 
+				_uiConfigsType.FindIndex(type => type == currentType);
+			
+			if (selectedIndex < 0) 
+				selectedIndex = 0;
+
+			if (_uiConfigsAddress != null && _uiConfigsAddress.Length > 0)
+			{
+				dropdown.index = selectedIndex;
+				dropdown.RegisterValueChangedCallback(evt => OnPresenterSelectionChanged(evt, itemProperty));
+			}
+		}
+
+		private void OnPresenterSelectionChanged(ChangeEvent<string> evt, SerializedProperty itemProperty)
+		{
+			var newIndex = Array.IndexOf(_uiConfigsAddress, evt.newValue);
+			if (newIndex >= 0 && newIndex < _uiConfigsType.Count)
+			{
+				itemProperty.stringValue = _uiConfigsType[newIndex];
+				itemProperty.serializedObject.ApplyModifiedProperties();
+			}
+		}
+
+		private VisualElement CreateSetElement(string setName, int setIndex)
+		{
+			var setContainer = new VisualElement();
+			setContainer.style.marginBottom = 15;
+			setContainer.style.paddingLeft = 5;
+			setContainer.style.paddingRight = 5;
+			setContainer.style.paddingTop = 5;
+			setContainer.style.paddingBottom = 5;
+			setContainer.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.2f);
+			setContainer.style.borderBottomLeftRadius = 4;
+			setContainer.style.borderBottomRightRadius = 4;
+			setContainer.style.borderTopLeftRadius = 4;
+			setContainer.style.borderTopRightRadius = 4;
+
+			// Header
+			var header = new Label($"{setName} Set");
+			header.style.unityFontStyleAndWeight = FontStyle.Bold;
+			header.style.fontSize = 13;
+			header.style.marginBottom = 5;
+			setContainer.Add(header);
+
+			// Get the property for this set's UI configs
+			var setProperty = _setsProperty.GetArrayElementAtIndex(setIndex);
+			var uiConfigsTypeProperty = setProperty.FindPropertyRelative(nameof(UiConfigs.UiSetConfigSerializable.UiConfigsType));
+
+			// ListView for presenters in this set
+			var presenterListView = new ListView
+			{
+				showBorder = true,
+				showAddRemoveFooter = true,
+				reorderable = true,
+				showBoundCollectionSize = false,
+				virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
+				fixedItemHeight = 22
+			};
+
+			presenterListView.BindProperty(uiConfigsTypeProperty);
+
+			presenterListView.makeItem = CreateSetPresenterElement;
+			presenterListView.bindItem = (element, index) => BindSetPresenterElement(element, index, uiConfigsTypeProperty);
+
+			setContainer.Add(presenterListView);
+
+			return setContainer;
+		}
+
+		private void SyncConfigsWithAddressables()
+		{
+			var assetList = GetAssetList();
+			var configs = new List<UiConfig>();
+			var uiConfigsAddress = new List<string>();
+			var uiConfigsType = new List<string>();
+			var assetPathLookup = new Dictionary<string, string>();
+
+			var existingConfigs = _scriptableObject.Configs;
+
+			foreach (var asset in assetList)
+			{
+				// Only process GameObjects
+				if (AssetDatabase.GetMainAssetTypeAtPath(asset.AssetPath) != typeof(GameObject))
+					continue;
+
+				var uiPresenter = AssetDatabase.LoadAssetAtPath<UiPresenter>(asset.AssetPath);
+				if (uiPresenter == null)
+					continue;
+
+				// Get sorting order from Canvas or UIDocument
+				var sortingOrder = GetSortingOrder(uiPresenter);
+				
+				// Check if config already exists to preserve custom layer values
+				var existingConfigIndex = existingConfigs.FindIndex(c => c.AddressableAddress == asset.address);
+				var presenterType = uiPresenter.GetType();
+				
+				var config = new UiConfig
+				{
+					AddressableAddress = asset.address,
+					Layer = existingConfigIndex >= 0 && sortingOrder < 0 ? existingConfigs[existingConfigIndex].Layer : 
+					        sortingOrder < 0 ? 0 : sortingOrder,
+					UiType = presenterType,
+					LoadSynchronously = Attribute.IsDefined(presenterType, typeof(LoadSynchronouslyAttribute))
+				};
+
+				configs.Add(config);
+				uiConfigsAddress.Add(asset.address);
+				uiConfigsType.Add(presenterType.AssemblyQualifiedName);
+				assetPathLookup[asset.address] = asset.AssetPath;
+			}
+
+			_scriptableObject.Configs = configs;
+			_uiConfigsAddress = uiConfigsAddress.ToArray();
+			_uiConfigsType = uiConfigsType;
+			_assetPathLookup = assetPathLookup;
+
+			EditorUtility.SetDirty(_scriptableObject);
+			AssetDatabase.SaveAssets();
+		}
+
+		private int GetSortingOrder(UiPresenter presenter)
+		{
+			if (presenter.TryGetComponent<Canvas>(out var canvas))
+			{
+				return canvas.sortingOrder;
+			}
+			
+			if (presenter.TryGetComponent<UIDocument>(out var document))
+			{
+				return (int)document.sortingOrder;
+			}
+			
+			return -1;
+		}
+
+		private void SyncLayerToPrefab(string address, int newLayer)
+		{
+			if (_assetPathLookup == null || !_assetPathLookup.TryGetValue(address, out var assetPath))
+				return;
+
+			var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+			if (prefab == null)
+				return;
+
+			bool changed = false;
+
+			if (prefab.TryGetComponent<Canvas>(out var canvas))
 			{
 				canvas.sortingOrder = newLayer;
-
-				EditorUtility.SetDirty(canvas);
-				AssetDatabase.SaveAssets();
+				changed = true;
 			}
-			else if (ui.TryGetComponent<UIDocument>(out var document))
+			else if (prefab.TryGetComponent<UIDocument>(out var document))
 			{
 				document.sortingOrder = newLayer;
-
-				EditorUtility.SetDirty(document);
-				AssetDatabase.SaveAssets();
+				changed = true;
 			}
 
-			Resources.UnloadUnusedAssets();
+			if (changed)
+			{
+				EditorUtility.SetDirty(prefab);
+				AssetDatabase.SaveAssets();
+			}
 		}
 		
 		private static List<AddressableAssetEntry> GetAssetList()
