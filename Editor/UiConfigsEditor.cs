@@ -228,15 +228,42 @@ namespace GameLoversEditor.UiService
 
 		private VisualElement CreateSetPresenterElement()
 		{
+			var container = new VisualElement();
+			container.style.flexDirection = FlexDirection.Row;
+			container.style.alignItems = Align.Center;
+			
+			// Drag handle for reordering
+			var dragHandle = new Label("☰");
+			dragHandle.style.width = 20;
+			dragHandle.style.unityTextAlign = TextAnchor.MiddleCenter;
+			dragHandle.style.marginLeft = 3;
+			dragHandle.style.marginRight = 5;
+			dragHandle.style.fontSize = 16;
+			dragHandle.style.color = new Color(0.7f, 0.7f, 0.7f);
+			dragHandle.tooltip = "Drag to reorder";
+			container.Add(dragHandle);
+			
+			// Dropdown for selecting UI presenter
 			var dropdown = new DropdownField();
 			dropdown.choices = new List<string>(_uiConfigsAddress ?? new string[0]);
 			dropdown.style.flexGrow = 1;
 			dropdown.style.paddingTop = 3;
 			dropdown.style.paddingBottom = 3;
-			dropdown.style.marginLeft = 3;
-			dropdown.style.marginRight = 3;
+			container.Add(dropdown);
 			
-			return dropdown;
+			// Delete button
+			var deleteButton = new Button { text = "×" };
+			deleteButton.style.width = 25;
+			deleteButton.style.height = 20;
+			deleteButton.style.marginLeft = 5;
+			deleteButton.style.marginRight = 3;
+			deleteButton.style.fontSize = 18;
+			deleteButton.style.unityFontStyleAndWeight = FontStyle.Bold;
+			deleteButton.tooltip = "Remove from set";
+			deleteButton.name = "delete-button";
+			container.Add(deleteButton);
+			
+			return container;
 		}
 
 		private VisualElement CreateSetElement(string setName, int setIndex)
@@ -269,12 +296,13 @@ namespace GameLoversEditor.UiService
 				reorderable = true,
 				showBoundCollectionSize = false,
 				virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
-				fixedItemHeight = 25
+				fixedItemHeight = 28
 			};
 
 			presenterListView.BindProperty(uiConfigsTypeProperty);
 
 			presenterListView.makeItem = CreateSetPresenterElement;
+			presenterListView.bindItem = (element, index) => BindSetPresenterElement(element, index, uiConfigsTypeProperty, presenterListView);
 			
 			// Register callbacks to save changes when items are added, removed, or reordered
 			presenterListView.itemsAdded += indices => OnPresenterItemsAdded(indices, uiConfigsTypeProperty);
@@ -284,6 +312,55 @@ namespace GameLoversEditor.UiService
 			setContainer.Add(presenterListView);
 
 			return setContainer;
+		}
+
+		private void BindSetPresenterElement(VisualElement element, int index, SerializedProperty uiConfigsTypeProperty, ListView listView)
+		{
+			if (index >= uiConfigsTypeProperty.arraySize)
+				return;
+
+			var dropdown = element.Q<DropdownField>();
+			if (dropdown == null)
+				return;
+
+			var itemProperty = uiConfigsTypeProperty.GetArrayElementAtIndex(index);
+			
+			// Find the index in our type list
+			var currentType = itemProperty.stringValue;
+			var selectedIndex = string.IsNullOrEmpty(currentType) ? 0 : 
+				_uiConfigsType.FindIndex(type => type == currentType);
+			
+			if (selectedIndex < 0) 
+				selectedIndex = 0;
+
+			if (_uiConfigsAddress != null && _uiConfigsAddress.Length > 0)
+			{
+				// Unbind to prevent stale property references
+				dropdown.Unbind();
+				
+				// Set the current value
+				dropdown.index = selectedIndex;
+				
+				// Bind to the property - this handles change tracking automatically
+				dropdown.BindProperty(itemProperty);
+			}
+			
+			// Wire up delete button
+			var deleteButton = element.Q<Button>("delete-button");
+			if (deleteButton != null)
+			{
+				// Remove previous click handlers to avoid stacking
+				deleteButton.UnregisterCallback<ClickEvent>(_ => OnDeleteButtonClicked(uiConfigsTypeProperty, index, listView));
+				deleteButton.RegisterCallback<ClickEvent>(_ => OnDeleteButtonClicked(uiConfigsTypeProperty, index, listView));
+			}
+		}
+
+		private void OnDeleteButtonClicked(SerializedProperty uiConfigsTypeProperty, int index, ListView listView)
+		{
+			uiConfigsTypeProperty.DeleteArrayElementAtIndex(index);
+			uiConfigsTypeProperty.serializedObject.ApplyModifiedProperties();
+			listView.RefreshItems();
+			SaveSetChanges();
 		}
 
 		private void OnPresenterItemsAdded(IEnumerable<int> indices, SerializedProperty uiConfigsTypeProperty)
