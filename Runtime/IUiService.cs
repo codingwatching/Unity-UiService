@@ -257,9 +257,15 @@ namespace GameLovers.UiService
 		/// <remarks>
 		/// To help configure the game's UI, you need to create a UiConfigs Scriptable object by:
 		/// - Right Click on the Project View > Create > ScriptableObjects > Configs > UiConfigs
+		/// - Duplicate UI configs or UI sets will log warnings but will not throw exceptions
+		/// - Layer numbers below 0 or above 1000 will log warnings
+		/// - Empty addressable addresses or null UI types will throw ArgumentException
 		/// </remarks>
+		/// <exception cref="ArgumentNullException">
+		/// Thrown if <paramref name="configs"/> is null.
+		/// </exception>
 		/// <exception cref="ArgumentException">
-		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated.
+		/// Thrown if any UI config has an empty addressable address or null UI type.
 		/// </exception>
 		void Init(UiConfigs configs);
 	}

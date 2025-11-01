@@ -42,7 +42,7 @@ namespace GameLovers.UiService
 		/// <summary>
 		/// Gets the list of UI set configurations
 		/// </summary>
-		public List<UiSetConfig> Sets => _sets.ConvertAll(element => (UiSetConfig)element);
+		public List<UiSetConfig> Sets => _sets.ConvertAll(element => UiSetConfigSerializable.ToUiSetConfig(element, _configs));
 
 		/// <summary>
 		/// Sets the new size of this scriptable object <seealso cref="UiSetConfig"/> list.
@@ -60,23 +60,23 @@ namespace GameLovers.UiService
 			{
 				if (i < _sets.Count)
 				{
-					var cleanedConfigList = new List<string>(_sets[i].UiConfigsType.Count);
+					var cleanedConfigList = new List<string>(_sets[i].UiConfigsAddress.Count);
 
-					foreach (var uiConfig in _sets[i].UiConfigsType)
+					foreach (var address in _sets[i].UiConfigsAddress)
 					{
-						if (_configs.FindIndex(config => config.UiType == uiConfig) > -1)
+						if (_configs.FindIndex(config => config.AddressableAddress == address) > -1)
 						{
-							cleanedConfigList.Add(uiConfig);
+							cleanedConfigList.Add(address);
 						}
 					}
 
 					var set = _sets[i];
-					set.UiConfigsType = cleanedConfigList;
+					set.UiConfigsAddress = cleanedConfigList;
 					_sets[i] = set;
 					continue;
 				}
 
-				_sets.Add(new UiSetConfigSerializable { SetId = i, UiConfigsType = new List<string>() });
+				_sets.Add(new UiSetConfigSerializable { SetId = i, UiConfigsAddress = new List<string>() });
 			}
 		}
 
@@ -112,46 +112,5 @@ namespace GameLovers.UiService
 			}
 		}
 
-		/// <summary>
-		/// Necessary to serialize the data in scriptable object
-		/// </summary>
-		[Serializable]
-		public struct UiSetConfigSerializable
-		{
-			public int SetId;
-			public List<string> UiConfigsType;
-
-			public static implicit operator UiSetConfig(UiSetConfigSerializable serializable)
-			{
-				var configs = new List<Type>();
-
-				foreach (var uiConfig in serializable.UiConfigsType)
-				{
-					configs.Add(Type.GetType(uiConfig));
-				}
-
-				return new UiSetConfig
-				{
-					SetId = serializable.SetId,
-					UiConfigsType = configs.AsReadOnly()
-				};
-			}
-
-			public static implicit operator UiSetConfigSerializable(UiSetConfig config)
-			{
-				var configTypes = new List<string>();
-
-				foreach (var type in config.UiConfigsType)
-				{
-					configTypes.Add(type.AssemblyQualifiedName);
-				}
-
-				return new UiSetConfigSerializable
-				{
-					SetId = config.SetId,
-					UiConfigsType = configTypes
-				};
-			}
-		}
 	}
 }

@@ -66,8 +66,7 @@ namespace GameLoversEditor.UiService
 			"Presenters are loaded in the order listed (top to bottom).";
 
 		private Dictionary<string, string> _assetPathLookup;
-		private List<string> _uiConfigsType;
-		private string[] _uiConfigsAddress;
+		private List<string> _uiConfigsAddress;
 		private UiConfigs _scriptableObject;
 		private SerializedProperty _configsProperty;
 		private SerializedProperty _setsProperty;
@@ -245,7 +244,7 @@ namespace GameLoversEditor.UiService
 			
 			// Dropdown for selecting UI presenter
 			var dropdown = new DropdownField();
-			dropdown.choices = new List<string>(_uiConfigsAddress ?? new string[0]);
+			dropdown.choices = new List<string>(_uiConfigsAddress ?? new List<string>());
 			dropdown.style.flexGrow = 1;
 			dropdown.style.paddingTop = 3;
 			dropdown.style.paddingBottom = 3;
@@ -286,7 +285,7 @@ namespace GameLoversEditor.UiService
 
 			// Get the property for this set's UI configs
 			var setProperty = _setsProperty.GetArrayElementAtIndex(setIndex);
-			var uiConfigsTypeProperty = setProperty.FindPropertyRelative(nameof(UiConfigs.UiSetConfigSerializable.UiConfigsType));
+			var uiConfigsAddressProperty = setProperty.FindPropertyRelative(nameof(UiSetConfigSerializable.UiConfigsAddress));
 
 			// ListView for presenters in this set
 			var presenterListView = new ListView
@@ -299,13 +298,13 @@ namespace GameLoversEditor.UiService
 				fixedItemHeight = 28
 			};
 
-			presenterListView.BindProperty(uiConfigsTypeProperty);
+			presenterListView.BindProperty(uiConfigsAddressProperty);
 
 			presenterListView.makeItem = CreateSetPresenterElement;
-			presenterListView.bindItem = (element, index) => BindSetPresenterElement(element, index, uiConfigsTypeProperty, presenterListView);
+			presenterListView.bindItem = (element, index) => BindSetPresenterElement(element, index, uiConfigsAddressProperty, presenterListView);
 			
 			// Register callbacks to save changes when items are added, removed, or reordered
-			presenterListView.itemsAdded += indices => OnPresenterItemsAdded(indices, uiConfigsTypeProperty);
+			presenterListView.itemsAdded += indices => OnPresenterItemsAdded(indices, uiConfigsAddressProperty);
 			presenterListView.itemsRemoved += _ => SaveSetChanges();
 			presenterListView.itemIndexChanged += (_, _) => SaveSetChanges();
 
@@ -314,26 +313,26 @@ namespace GameLoversEditor.UiService
 			return setContainer;
 		}
 
-		private void BindSetPresenterElement(VisualElement element, int index, SerializedProperty uiConfigsTypeProperty, ListView listView)
+		private void BindSetPresenterElement(VisualElement element, int index, SerializedProperty uiConfigsAddressProperty, ListView listView)
 		{
-			if (index >= uiConfigsTypeProperty.arraySize)
+			if (index >= uiConfigsAddressProperty.arraySize)
 				return;
 
 			var dropdown = element.Q<DropdownField>();
 			if (dropdown == null)
 				return;
 
-			var itemProperty = uiConfigsTypeProperty.GetArrayElementAtIndex(index);
+			var itemProperty = uiConfigsAddressProperty.GetArrayElementAtIndex(index);
 			
-			// Find the index in our type list
-			var currentType = itemProperty.stringValue;
-			var selectedIndex = string.IsNullOrEmpty(currentType) ? 0 : 
-				_uiConfigsType.FindIndex(type => type == currentType);
+			// Find the index in our address list
+			var currentAddress = itemProperty.stringValue;
+			var selectedIndex = string.IsNullOrEmpty(currentAddress) ? 0 : 
+				_uiConfigsAddress.FindIndex(address => address == currentAddress);
 			
 			if (selectedIndex < 0) 
 				selectedIndex = 0;
 
-			if (_uiConfigsAddress != null && _uiConfigsAddress.Length > 0)
+			if (_uiConfigsAddress != null && _uiConfigsAddress.Count > 0)
 			{
 				// Unbind to prevent stale property references
 				dropdown.Unbind();
@@ -341,26 +340,41 @@ namespace GameLoversEditor.UiService
 				// Set the current value
 				dropdown.index = selectedIndex;
 				
-				// Bind to the property - this handles change tracking automatically
-				dropdown.BindProperty(itemProperty);
+				// Register callback to store address when changed
+				dropdown.RegisterValueChangedCallback(evt =>
+				{
+					var newIndex = dropdown.index;
+					if (newIndex >= 0 && newIndex < _uiConfigsAddress.Count)
+					{
+						itemProperty.stringValue = _uiConfigsAddress[newIndex];
+						SaveSetChanges();
+					}
+				});
+				
+				// Set initial value if property is empty
+				if (string.IsNullOrEmpty(itemProperty.stringValue) && selectedIndex < _uiConfigsAddress.Count)
+				{
+					itemProperty.stringValue = _uiConfigsAddress[selectedIndex];
+					serializedObject.ApplyModifiedProperties();
+				}
 			}
 		}
 
-		private void OnPresenterItemsAdded(IEnumerable<int> indices, SerializedProperty uiConfigsTypeProperty)
+		private void OnPresenterItemsAdded(IEnumerable<int> indices, SerializedProperty uiConfigsAddressProperty)
 		{
-			if (_uiConfigsAddress == null || _uiConfigsAddress.Length == 0)
+			if (_uiConfigsAddress == null || _uiConfigsAddress.Count == 0)
 			{
 				return;
 			}
 
-			var defaultType = _uiConfigsAddress[0];
+			var defaultAddress = _uiConfigsAddress[0];
 			
 			foreach (var index in indices)
 			{
-				if (index < uiConfigsTypeProperty.arraySize)
+				if (index < uiConfigsAddressProperty.arraySize)
 				{
-					var itemProperty = uiConfigsTypeProperty.GetArrayElementAtIndex(index);
-					itemProperty.stringValue = defaultType;
+					var itemProperty = uiConfigsAddressProperty.GetArrayElementAtIndex(index);
+					itemProperty.stringValue = defaultAddress;
 				}
 			}
 		
@@ -383,9 +397,7 @@ namespace GameLoversEditor.UiService
 			var assetList = GetAssetList();
 			var configs = new List<UiConfig>();
 			var uiConfigsAddress = new List<string>();
-			var uiConfigsType = new List<string>();
 			var assetPathLookup = new Dictionary<string, string>();
-
 			var existingConfigs = _scriptableObject.Configs;
 
 			foreach (var asset in assetList)
@@ -416,13 +428,11 @@ namespace GameLoversEditor.UiService
 
 				configs.Add(config);
 				uiConfigsAddress.Add(asset.address);
-				uiConfigsType.Add(presenterType.AssemblyQualifiedName);
 				assetPathLookup[asset.address] = asset.AssetPath;
 			}
 
 			_scriptableObject.Configs = configs;
-			_uiConfigsAddress = uiConfigsAddress.ToArray();
-			_uiConfigsType = uiConfigsType;
+			_uiConfigsAddress = uiConfigsAddress;
 			_assetPathLookup = assetPathLookup;
 
 			EditorUtility.SetDirty(_scriptableObject);
@@ -492,3 +502,4 @@ namespace GameLoversEditor.UiService
 		}
 	}
 }
+
