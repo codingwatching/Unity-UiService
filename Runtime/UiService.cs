@@ -310,22 +310,14 @@ namespace GameLovers.UiService
 		{
 			var ui = await GetOrLoadUiAsync(type, cancellationToken);
 
-			if (ui is UiToolkitPresenter<TData>)
+			if (ui is UiPresenter<TData> uiPresenter)
 			{
-				var uiPresenter = ui as UiToolkitPresenter<TData>;
-				
-				uiPresenter.InternalSetData(initialData);
-			}
-			else if (ui is UiPresenter<TData>)
-			{
-				var uiPresenter = ui as UiPresenter<TData>;
-				
 				uiPresenter.InternalSetData(initialData);
 			}
 			else
 			{
-				Debug.LogError($"The UiPresenter {type} is not a {nameof(UiPresenter<TData>)} nor {nameof(UiToolkitPresenter<TData>)} type. " +
-							$"Implement it to allow it to open with initial defined data");
+				Debug.LogError($"The UiPresenter {type} is not a {nameof(UiPresenter<TData>)} type. " +
+							$"Implement UiPresenter<{typeof(TData).Name}> to allow it to open with initial defined data");
 				return ui;
 			}
 			

@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+using System.Collections.Generic;
 using UnityEngine;
 
 // ReSharper disable CheckNamespace
@@ -20,6 +20,7 @@ namespace GameLovers.UiService
 	public abstract class UiPresenter : MonoBehaviour
 	{
 		protected IUiService _uiService;
+		private List<IPresenterFeature> _features;
 
 		/// <summary>
 		/// Requests the open status of the <see cref="UiPresenter"/>
@@ -52,19 +53,25 @@ namespace GameLovers.UiService
 		internal void Init(IUiService uiService)
 		{
 			_uiService = uiService;
+			InitializeFeatures();
 			OnInitialized();
 		}
 
 		internal void InternalOpen()
 		{
+			NotifyFeaturesOpening();
+			
 			gameObject.SetActive(true);
 
 			OnOpened();
+			NotifyFeaturesOpened();
 		}
 
 		internal virtual void InternalClose(bool destroy)
 		{
+			NotifyFeaturesClosing();
 			OnClosed();
+			NotifyFeaturesClosed();
 
 			if (gameObject == null)
 			{
@@ -78,6 +85,57 @@ namespace GameLovers.UiService
 			else
 			{
 				gameObject.SetActive(false);
+			}
+		}
+
+		private void InitializeFeatures()
+		{
+			_features = new List<IPresenterFeature>();
+			GetComponents(_features);
+
+			foreach (var feature in _features)
+			{
+				feature.OnPresenterInitialized(this);
+			}
+		}
+
+		private void NotifyFeaturesOpening()
+		{
+			if (_features == null) return;
+			
+			foreach (var feature in _features)
+			{
+				feature.OnPresenterOpening();
+			}
+		}
+
+		private void NotifyFeaturesOpened()
+		{
+			if (_features == null) return;
+			
+			foreach (var feature in _features)
+			{
+				feature.OnPresenterOpened();
+			}
+		}
+
+		private void NotifyFeaturesClosing()
+		{
+			if (_features == null) return;
+			
+			foreach (var feature in _features)
+			{
+				feature.OnPresenterClosing();
+			}
+		}
+
+		private void NotifyFeaturesClosed()
+		{
+			if (_features == null) return;
+			
+			foreach (var feature in _features)
+			{
+				feature.OnPresenterClosed();
 			}
 		}
 	}
