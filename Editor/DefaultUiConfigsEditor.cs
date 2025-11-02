@@ -9,12 +9,12 @@ namespace GameLoversEditor.UiService
 	/// </summary>
 	public enum DefaultUiSetId
 	{
-		None = 0,
+		InitialLoading = 0,
 		MainMenu = 1,
 		Gameplay = 2,
 		Settings = 3,
-		Overlay = 4,
-		Popup = 5
+		Overlays = 4,
+		Popups = 5
 	}
 
 	/// <summary>

@@ -81,11 +81,14 @@ namespace GameLoversEditor.UiService
 
 			SyncConfigsWithAddressables();
 			
-			_configsProperty = serializedObject.FindProperty("_configs");
-			_setsProperty = serializedObject.FindProperty("_sets");
-			
 			// Ensure sets array matches enum size
 			_scriptableObject.SetSetsSize(Enum.GetNames(typeof(TSet)).Length);
+			
+			// Update the serializedObject to reflect the changes
+			serializedObject.Update();
+			
+			_configsProperty = serializedObject.FindProperty("_configs");
+			_setsProperty = serializedObject.FindProperty("_sets");
 		}
 
 		/// <inheritdoc />

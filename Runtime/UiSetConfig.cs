@@ -13,7 +13,7 @@ namespace GameLovers.UiService
 	public struct UiSetConfig
 	{
 		public int SetId;
-		public IReadOnlyList<Type> UiConfigsType;
+		public Type[] UiConfigsType;
 	}
 
 	/// <summary>
@@ -27,19 +27,28 @@ namespace GameLovers.UiService
 
 		public static UiSetConfig ToUiSetConfig(UiSetConfigSerializable serializable, List<UiConfigs.UiConfigSerializable> configs)
 		{
-			var types = new List<Type>();
+			var types = new Type[serializable.UiConfigsAddress.Count];
+			var index = 0;
+			
 			foreach (var address in serializable.UiConfigsAddress)
 			{
 				var config = configs.Find(c => c.AddressableAddress == address);
 				if (!string.IsNullOrEmpty(config.UiType))
 				{
-					types.Add(Type.GetType(config.UiType));
+					types[index++] = Type.GetType(config.UiType);
 				}
 			}
+			
+			// Trim array if some addresses weren't found
+			if (index < types.Length)
+			{
+				Array.Resize(ref types, index);
+			}
+			
 			return new UiSetConfig 
 			{ 
 				SetId = serializable.SetId, 
-				UiConfigsType = types.AsReadOnly() 
+				UiConfigsType = types 
 			};
 		}
 

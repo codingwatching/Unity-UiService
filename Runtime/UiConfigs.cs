@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 // ReSharper disable CheckNamespace
@@ -51,6 +52,8 @@ namespace GameLovers.UiService
 		/// <param name="size">The new size of the list</param>
 		public void SetSetsSize(int size)
 		{
+			var validAddresses = new HashSet<string>(_configs.Select(c => c.AddressableAddress));
+			
 			if (size < _sets.Count)
 			{
 				_sets.RemoveRange(size, _sets.Count - size);
@@ -60,18 +63,8 @@ namespace GameLovers.UiService
 			{
 				if (i < _sets.Count)
 				{
-					var cleanedConfigList = new List<string>(_sets[i].UiConfigsAddress.Count);
-
-					foreach (var address in _sets[i].UiConfigsAddress)
-					{
-						if (_configs.FindIndex(config => config.AddressableAddress == address) > -1)
-						{
-							cleanedConfigList.Add(address);
-						}
-					}
-
 					var set = _sets[i];
-					set.UiConfigsAddress = cleanedConfigList;
+					set.UiConfigsAddress.RemoveAll(address => !validAddresses.Contains(address));
 					_sets[i] = set;
 					continue;
 				}
