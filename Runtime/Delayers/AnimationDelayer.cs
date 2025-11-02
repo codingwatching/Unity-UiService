@@ -11,15 +11,15 @@ namespace GameLovers.UiService
 	[RequireComponent(typeof(Animation))]
 	public class AnimationDelayer : PresenterDelayerBase
 	{
-	[SerializeField] protected Animation _animation;
-	[SerializeField] protected AnimationClip _introAnimationClip;
-	[SerializeField] protected AnimationClip _outroAnimationClip;
+		[SerializeField] protected Animation _animation;
+		[SerializeField] protected AnimationClip _introAnimationClip;
+		[SerializeField] protected AnimationClip _outroAnimationClip;
 
-	/// <inheritdoc />
-	public override float OpenDelayInSeconds => _introAnimationClip?.length ?? 0f;
+		/// <inheritdoc />
+		public override float OpenDelayInSeconds => _introAnimationClip?.length ?? 0f;
 
-	/// <inheritdoc />
-	public override float CloseDelayInSeconds => _outroAnimationClip?.length ?? 0f;
+		/// <inheritdoc />
+		public override float CloseDelayInSeconds => _outroAnimationClip?.length ?? 0f;
 
 		private void OnValidate()
 		{ 
@@ -28,12 +28,22 @@ namespace GameLovers.UiService
 
 		protected override void OnOpenStarted()
 		{
+			if (!_introAnimationClip)
+			{
+				return;
+			}
+
 			_animation.clip = _introAnimationClip;
 			_animation.Play();
 		}
 
 		protected override void OnCloseStarted()
 		{
+			if (!_outroAnimationClip)
+			{
+				return;
+			}
+
 			_animation.clip = _outroAnimationClip;
 			_animation.Play();
 		}

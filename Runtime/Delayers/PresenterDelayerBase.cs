@@ -19,21 +19,21 @@ namespace GameLovers.UiService
 		/// </summary>
 		float CloseDelayInSeconds { get; }
 
-	/// <summary>
-	/// Gets the UniTask of the current's delay process
-	/// </summary>
-	UniTask CurrentDelayTask { get; }
+		/// <summary>
+		/// Gets the UniTask of the current's delay process
+		/// </summary>
+		UniTask CurrentDelayTask { get; }
 	}
 
 	/// <inheritdoc />
 	public abstract class PresenterDelayerBase : MonoBehaviour, IPresenterDelayer
 	{
-	/// <inheritdoc />
-	public abstract float OpenDelayInSeconds { get; }
-	/// <inheritdoc />
-	public abstract float CloseDelayInSeconds { get; }
-	/// <inheritdoc />
-	public UniTask CurrentDelayTask { get; protected set; }
+		/// <inheritdoc />
+		public abstract float OpenDelayInSeconds { get; }
+		/// <inheritdoc />
+		public abstract float CloseDelayInSeconds { get; }
+		/// <inheritdoc />
+		public UniTask CurrentDelayTask { get; protected set; }
 
 		/// <summary>
 		/// Called when the presenter's opening delay starts.
@@ -45,33 +45,33 @@ namespace GameLovers.UiService
 		/// </summary>
 		protected virtual void OnCloseStarted() { }
 
-internal async UniTask OpenWithDelay(Action onOpenedCompleted)
-{
-	OnOpenStarted();
+		internal async UniTask OpenWithDelay(Action onOpenedCompleted)
+		{
+			OnOpenStarted();
 
-	CurrentDelayTask = UniTask.Delay(TimeSpan.FromSeconds(OpenDelayInSeconds));
+			CurrentDelayTask = UniTask.Delay(TimeSpan.FromSeconds(OpenDelayInSeconds));
 
-	await CurrentDelayTask;
+			await CurrentDelayTask;
 
-	if (gameObject != null)
-	{
-		onOpenedCompleted();
-	}
-}
+			if (gameObject != null)
+			{
+				onOpenedCompleted();
+			}
+		}
 
-internal async UniTask CloseWithDelay(Action onCloseCompleted)
-{
-	OnCloseStarted();
+		internal async UniTask CloseWithDelay(Action onCloseCompleted)
+		{
+			OnCloseStarted();
 
-	CurrentDelayTask = UniTask.Delay(TimeSpan.FromSeconds(CloseDelayInSeconds));
+			CurrentDelayTask = UniTask.Delay(TimeSpan.FromSeconds(CloseDelayInSeconds));
 
-	await CurrentDelayTask;
+			await CurrentDelayTask;
 
-	if (gameObject != null)
-	{
-		gameObject.SetActive(false);
-		onCloseCompleted();
-	}
-}
+			if (gameObject != null)
+			{
+				gameObject.SetActive(false);
+				onCloseCompleted();
+			}
+		}
 	}
 }

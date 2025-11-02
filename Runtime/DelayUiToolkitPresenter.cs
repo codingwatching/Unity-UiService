@@ -1,18 +1,27 @@
-﻿using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace GameLovers.UiService
 {
 	/// <summary>
-	/// Abstract base class for UI presenters that delay their opening and closing.
+	/// Abstract base class for UI Toolkit-based presenters that delay their opening and closing.
+	/// Combines the functionality of <see cref="UiToolkitPresenter"/> with delay capabilities from <see cref="DelayUiPresenter"/>.
 	/// </summary>
 	[RequireComponent(typeof(PresenterDelayerBase))]
-	public abstract class DelayUiPresenter : UiPresenter
+	public abstract class DelayUiToolkitPresenter : UiToolkitPresenter
 	{
 		[SerializeField] private PresenterDelayerBase _delayer;
 
-		private void OnValidate()
+		/// <summary>
+		/// Provides access to the attached <see cref="PresenterDelayerBase"/> for derived presenters.
+		/// </summary>
+		protected PresenterDelayerBase Delayer => _delayer;
+
+		/// <inheritdoc />
+		protected override void OnValidate()
 		{
+			base.OnValidate();
+
 			_delayer = _delayer != null ? _delayer : GetComponent<PresenterDelayerBase>();
 
 			OnEditorValidate();
@@ -31,7 +40,7 @@ namespace GameLovers.UiService
 		}
 
 		/// <summary>
-		/// Called only in the Editor. Called in the end of this object MonoBehaviour's OnValidate() -> <see cref="OnValidate"/>
+		/// Called only in the Editor. Called at the end of this object MonoBehaviour's OnValidate() -> <see cref="OnValidate"/>
 		/// </summary>
 		protected virtual void OnEditorValidate() { }
 
@@ -48,7 +57,7 @@ namespace GameLovers.UiService
 		internal override void InternalClose(bool destroy)
 		{
 			// Override the behaviour to not allow the presenter to be disabled until delay is done.
-			// Not pretty inherithance with it's dependency but it works
+			// Not pretty inheritance with its dependency but it works
 			if (destroy)
 			{
 				base.InternalClose(true);
@@ -60,18 +69,26 @@ namespace GameLovers.UiService
 		}
 	}
 
-	/// <inheritdoc cref="DelayUiPresenter"/>
+	/// <inheritdoc cref="DelayUiToolkitPresenter"/>
 	/// <remarks>
 	/// Extends the presenter behaviour to hold data of type <typeparamref name="T"/>
 	/// </remarks>
 	/// <typeparam name="T">The type of data held by the presenter.</typeparam>
 	[RequireComponent(typeof(PresenterDelayerBase))]
-	public abstract class DelayUiPresenter<T> : UiPresenter<T> where T : struct
+	public abstract class DelayUiToolkitPresenter<T> : UiToolkitPresenter<T> where T : struct
 	{
 		[SerializeField] private PresenterDelayerBase _delayer;
 
-		private void OnValidate()
+		/// <summary>
+		/// Provides access to the attached <see cref="PresenterDelayerBase"/> for derived presenters.
+		/// </summary>
+		protected PresenterDelayerBase Delayer => _delayer;
+
+		/// <inheritdoc />
+		protected override void OnValidate()
 		{
+			base.OnValidate();
+
 			_delayer = _delayer ?? GetComponent<PresenterDelayerBase>();
 
 			OnEditorValidate();
@@ -90,7 +107,7 @@ namespace GameLovers.UiService
 		}
 
 		/// <summary>
-		/// Called only in the Editor. Called in the end of this object MonoBehaviour's OnValidate() -> <see cref="OnValidate"/>
+		/// Called only in the Editor. Called at the end of this object MonoBehaviour's OnValidate() -> <see cref="OnValidate"/>
 		/// </summary>
 		protected virtual void OnEditorValidate() { }
 
@@ -107,7 +124,7 @@ namespace GameLovers.UiService
 		internal override void InternalClose(bool destroy)
 		{
 			// Override the behaviour to not allow the presenter to be disabled until delay is done.
-			// Not pretty inherithance with it's dependency but it works
+			// Not pretty inheritance with its dependency but it works
 			if (destroy)
 			{
 				base.InternalClose(true);
@@ -119,3 +136,4 @@ namespace GameLovers.UiService
 		}
 	}
 }
+
