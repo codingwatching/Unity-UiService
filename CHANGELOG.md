@@ -4,6 +4,44 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [1.0.0] - 2025-11-04
+
+**New**:
+- Added `IUiAnalytics` interface and `UiAnalytics` implementation for performance tracking
+- Added three editor windows: `UiAnalyticsWindow`, `UiServiceHierarchyWindow`
+- Added new "UI Layer Hierarchy Visualizer" section to the `UiConfigsEditor` inspector
+- Added `UiPresenterSceneGizmos` for visual debugging in Scene view
+- Added `UiPresenterEditor` custom inspector with quick open/close buttons
+- Added multi-instance support for UI presenters via `UiInstanceId` struct and instance addresses
+- Added `UiInstance` struct to encapsulate presenter metadata (type, address, presenter reference)
+- Added feature-based presenter composition architecture with `IPresenterFeature` interface
+- Added `PresenterFeatureBase` base class for composable presenter features
+- Added `AnimationDelayFeature` and `TimeDelayFeature` components for delayed UI operations
+- Added `UiToolkitPresenterFeature` for UI Toolkit integration
+- Added `DefaultUiConfigsEditor` for out-of-the-box UI configuration (no custom implementation required)
+
+**Changed**:
+- Replaced `Task.Delay` with `UniTask.Delay` throughout for better performance and WebGL compatibility
+- Updated `CloseAllUi` to avoid modifying collection during iteration
+- Enhanced `UiService.Dispose()` with proper cleanup of all presenters, layers, and asset loader
+- `LoadUiAsync`, `OpenUiAsync` methods now accept optional `CancellationToken` parameter
+- Updated the README with a complete information of the project
+- Replaced `LoadedPresenters` property with `GetLoadedPresenters()` method for better encapsulation
+- Migrated all delay functionality from `PresenterDelayerBase` to feature-based system (`AnimationDelayFeature`, `TimeDelayFeature`)
+- Converted all editor scripts to use UI Toolkit for better performance and modern UI
+- Refactored `UiConfigsEditor` to use UI Toolkit with improved visuals and drag-and-drop support
+- Optimized collection types (`Dictionary`, `List`) for better performance in `UiService`
+- Removed loading spinner from `UiService` (simplified initialization)
+
+**Fixed**:
+- **CRITICAL**: Fixed `GetOrLoadUiAsync` returning null when loading new UI (now properly assigns return value)
+- Fixed exception handling in `UnloadUi` with proper `TryGetValue` checks
+- Fixed exception handling in `RemoveUiSet` with proper `TryGetValue` checks
+- Fixed redundant operations in `CloseAllUi` logic
+- Fixed initial value handling for UI sets in editor
+- Fixed serialization updates before property binding in editor
+- Fixed script indentation issues in delay presenter implementations
+
 ## [0.13.1] - 2025-09-28
 
 **New**:

@@ -1,7 +1,7 @@
 using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Threading;
 using UnityEngine;
 
 // ReSharper disable CheckNamespace
@@ -9,30 +9,57 @@ using UnityEngine;
 namespace GameLovers.UiService
 {
 	/// <summary>
+	/// Represents a UI presenter instance with its type, address and presenter reference
+	/// </summary>
+	public readonly struct UiInstance
+	{
+		/// <summary>
+		/// The type of the UI presenter
+		/// </summary>
+		public readonly Type Type;
+		
+		/// <summary>
+		/// The instance address (empty string for default/singleton instances)
+		/// </summary>
+		public readonly string Address;
+		
+		/// <summary>
+		/// The UI presenter reference
+		/// </summary>
+		public readonly UiPresenter Presenter;
+
+		public UiInstance(Type type, string address, UiPresenter presenter)
+		{
+			Type = type;
+			Address = address;
+			Presenter = presenter;
+		}
+	}
+
+	/// <summary>
 	/// This service provides an abstraction layer to interact with the game's UI <seealso cref="UiPresenter"/>
-	/// The Ui Service is organized by layers. The higher the layer the more close is to the camera viewport
+	/// The Ui Service is organized by layers. The higher the layer the more close is to the camera viewport.
+	/// Supports multiple instances of the same UI type through the UiInstanceId system.
 	/// </summary>
 	public interface IUiService
 	{
-		/// <summary>
-		/// Gets a read-only dictionary of the Presenters currently Loaded in memory by the UI service.
-		/// </summary>
-		IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters { get; }
 		
 		/// <summary>
-		/// Gets a read-only list of the Presenters currently currently visible and were opened by the UI service.
+		/// Gets a read-only list of all Presenter instances currently visible.
+		/// Each entry is a UiInstanceId containing the Type and instance name.
 		/// </summary>
-		IReadOnlyList<Type> VisiblePresenters { get; }
-
-		/// <summary>
-		/// Gets a read-only dictionary of the layers used by the UI service.
-		/// </summary>
-		IReadOnlyDictionary<int, GameObject> Layers { get; }
+		IReadOnlyList<UiInstanceId> VisiblePresenters { get; }
 
 		/// <summary>
 		/// Gets a read-only dictionary of the containers of UI, called 'Ui Set' maintained by the UI service.
 		/// </summary>
 		IReadOnlyDictionary<int, UiSetConfig> UiSets { get; }
+
+		/// <summary>
+		/// Gets all UI presenters currently loaded in memory by the UI service.
+		/// </summary>
+		/// <returns>A list of all loaded UI instances</returns>
+		List<UiInstance> GetLoadedPresenters();
 
 		/// <summary>
 		/// Requests the UI of given type <typeparamref name="T"/>
@@ -110,9 +137,10 @@ namespace GameLovers.UiService
 		/// </summary>
 		/// <typeparam name="T">The type of UI to load.</typeparam>
 		/// <param name="openAfter">Whether to open the UI after loading.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes with the loaded UI.</returns>
 		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI configuration for the specified type.</exception>
-		async UniTask<T> LoadUiAsync<T>(bool openAfter = false) where T : UiPresenter => (await LoadUiAsync(typeof(T), openAfter)) as T;
+		async UniTask<T> LoadUiAsync<T>(bool openAfter = false, CancellationToken cancellationToken = default) where T : UiPresenter => (await LoadUiAsync(typeof(T), openAfter, cancellationToken)) as T;
 
 		/// <summary>
 		/// Loads the UI of the specified type asynchronously.
@@ -121,9 +149,10 @@ namespace GameLovers.UiService
 		/// </summary>
 		/// <param name="type">The type of UI to load.</param>
 		/// <param name="openAfter">Whether to open the UI after loading.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes with the loaded UI.</returns>
 		/// <exception cref="KeyNotFoundException">Thrown if the service does not contain a UI configuration for the specified type.</exception>
-		UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false);
+		UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false, CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// Loads all UI presenters from the specified UI set asynchronously.
@@ -168,15 +197,17 @@ namespace GameLovers.UiService
 		/// Opens a UI presenter asynchronously, loading its assets if necessary.
 		/// </summary>
 		/// <typeparam name="T">The type of UI presenter to open.</typeparam>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		async UniTask<T> OpenUiAsync<T>() where T : UiPresenter => (await OpenUiAsync(typeof(T))) as T;
+		async UniTask<T> OpenUiAsync<T>(CancellationToken cancellationToken = default) where T : UiPresenter => (await OpenUiAsync(typeof(T), cancellationToken)) as T;
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary.
 		/// </summary>
 		/// <param name="type">The type of UI presenter to open.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		UniTask<UiPresenter> OpenUiAsync(Type type);
+		UniTask<UiPresenter> OpenUiAsync(Type type, CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary, and sets its initial data.
@@ -184,18 +215,20 @@ namespace GameLovers.UiService
 		/// <typeparam name="T">The type of UI presenter to open.</typeparam>
 		/// <typeparam name="TData">The type of initial data to set.</typeparam>
 		/// <param name="initialData">The initial data to set.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		async UniTask<T> OpenUiAsync<T, TData>(TData initialData) 
+		async UniTask<T> OpenUiAsync<T, TData>(TData initialData, CancellationToken cancellationToken = default) 
 			where T : class, IUiPresenterData 
-			where TData : struct => await OpenUiAsync(typeof(T), initialData) as T;
+			where TData : struct => await OpenUiAsync(typeof(T), initialData, cancellationToken) as T;
 
 		/// <summary>
 		/// Opens a UI presenter asynchronously, loading its assets if necessary, and sets its initial data.
 		/// </summary>
 		/// <param name="type">The type of UI presenter to open.</param>
 		/// <param name="initialData">The initial data to set.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
 		/// <returns>A task that completes when the UI presenter is opened.</returns>
-		UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData) where TData : struct;
+		UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData, CancellationToken cancellationToken = default) where TData : struct;
 
 		/// <summary>
 		/// Closes a UI presenter and optionally destroys its assets.
@@ -242,7 +275,7 @@ namespace GameLovers.UiService
 	/// <remarks>
 	/// This interface provides a way to initialize the UI service with the game's UI configurations.
 	/// </remarks>
-	public interface IUiServiceInit : IUiService
+	public interface IUiServiceInit : IUiService, IDisposable
 	{
 		/// <summary>
 		/// Initializes the UI service with the given UI configurations.
@@ -251,9 +284,15 @@ namespace GameLovers.UiService
 		/// <remarks>
 		/// To help configure the game's UI, you need to create a UiConfigs Scriptable object by:
 		/// - Right Click on the Project View > Create > ScriptableObjects > Configs > UiConfigs
+		/// - Duplicate UI configs or UI sets will log warnings but will not throw exceptions
+		/// - Layer numbers below 0 or above 1000 will log warnings
+		/// - Empty addressable addresses or null UI types will throw ArgumentException
 		/// </remarks>
+		/// <exception cref="ArgumentNullException">
+		/// Thrown if <paramref name="configs"/> is null.
+		/// </exception>
 		/// <exception cref="ArgumentException">
-		/// Thrown if any of the <see cref="UiConfig"/> in the given <paramref name="configs"/> is duplicated.
+		/// Thrown if any UI config has an empty addressable address or null UI type.
 		/// </exception>
 		void Init(UiConfigs configs);
 	}

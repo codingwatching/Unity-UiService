@@ -46,13 +46,13 @@ ExportedObj/
 # Rider Generated
 .idea
 
-# Unity3D generated meta files
+# Unity3D files
 *.pidb.meta
 *.pdb.meta
 *.mdb.meta
-
-# Unity3D generated file on crash reports
 sysinfo.txt
+!Samples~/
+!**/Samples~/**
 
 # Builds
 *.apk
@@ -61,7 +61,7 @@ sysinfo.txt
 # Crashlytics generated file
 crashlytics-build.properties
 
-#OS generated
+# OS generated
 **/.DS_Store
 **/DS_Store
 **/DS_Store?*
@@ -71,11 +71,10 @@ crashlytics-build.properties
 **/ehthumbs.db
 **/Thumbs.db
 
-#Windows generated
+# Windows generated
 *Thumbs*
 *.orig
 *.orig.meta
 *.uxf
-
 
 
