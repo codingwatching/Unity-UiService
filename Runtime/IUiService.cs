@@ -9,17 +9,40 @@ using UnityEngine;
 namespace GameLovers.UiService
 {
 	/// <summary>
+	/// Represents a UI presenter instance with its type, address and presenter reference
+	/// </summary>
+	public readonly struct UiInstance
+	{
+		/// <summary>
+		/// The type of the UI presenter
+		/// </summary>
+		public readonly Type Type;
+		
+		/// <summary>
+		/// The instance address (empty string for default/singleton instances)
+		/// </summary>
+		public readonly string Address;
+		
+		/// <summary>
+		/// The UI presenter reference
+		/// </summary>
+		public readonly UiPresenter Presenter;
+
+		public UiInstance(Type type, string address, UiPresenter presenter)
+		{
+			Type = type;
+			Address = address;
+			Presenter = presenter;
+		}
+	}
+
+	/// <summary>
 	/// This service provides an abstraction layer to interact with the game's UI <seealso cref="UiPresenter"/>
 	/// The Ui Service is organized by layers. The higher the layer the more close is to the camera viewport.
 	/// Supports multiple instances of the same UI type through the UiInstanceId system.
 	/// </summary>
 	public interface IUiService
 	{
-		/// <summary>
-		/// Gets a read-only dictionary of all Presenters currently loaded in memory by the UI service.
-		/// Keys are UiInstanceId which contain both the Type and optional instance name.
-		/// </summary>
-		IReadOnlyDictionary<UiInstanceId, UiPresenter> LoadedPresenters { get; }
 		
 		/// <summary>
 		/// Gets a read-only list of all Presenter instances currently visible.
@@ -31,6 +54,12 @@ namespace GameLovers.UiService
 		/// Gets a read-only dictionary of the containers of UI, called 'Ui Set' maintained by the UI service.
 		/// </summary>
 		IReadOnlyDictionary<int, UiSetConfig> UiSets { get; }
+
+		/// <summary>
+		/// Gets all UI presenters currently loaded in memory by the UI service.
+		/// </summary>
+		/// <returns>A list of all loaded UI instances</returns>
+		List<UiInstance> GetLoadedPresenters();
 
 		/// <summary>
 		/// Requests the UI of given type <typeparamref name="T"/>

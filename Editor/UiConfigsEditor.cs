@@ -64,7 +64,7 @@ namespace GameLoversEditor.UiService
 			"UI Sets group multiple presenter instances that should be displayed together. " +
 			"When a set is activated via UiService, all its presenters are loaded and shown simultaneously. " +
 			"Presenters are loaded in the order listed (top to bottom).\n\n" +
-			"You can add the same UI type multiple times with different instance addresses for multi-instance support.";
+			"Each UI's instance address is automatically set to its Addressable address from the config.";
 
 		private Dictionary<string, string> _assetPathLookup;
 		private List<string> _uiConfigsAddress;
@@ -258,14 +258,6 @@ namespace GameLoversEditor.UiService
 			dropdown.name = "ui-type-dropdown";
 			container.Add(dropdown);
 			
-			// Instance address field (optional)
-			var instanceField = new TextField();
-			instanceField.style.width = 120;
-			instanceField.style.marginLeft = 5;
-			instanceField.tooltip = "Optional instance address (leave empty for default instance)";
-			instanceField.name = "instance-address-field";
-			container.Add(instanceField);
-			
 			// Delete button
 			var deleteButton = new Button { text = "×" };
 			deleteButton.style.width = 25;
@@ -335,8 +327,7 @@ namespace GameLoversEditor.UiService
 				return;
 
 			var dropdown = element.Q<DropdownField>("ui-type-dropdown");
-			var instanceField = element.Q<TextField>("instance-address-field");
-			if (dropdown == null || instanceField == null)
+			if (dropdown == null)
 				return;
 
 			var entryProperty = uiEntriesProperty.GetArrayElementAtIndex(index);
@@ -371,14 +362,12 @@ namespace GameLoversEditor.UiService
 			{
 				// Unbind to prevent stale property references
 				dropdown.Unbind();
-				instanceField.Unbind();
 				
 				// Set the current values
 				dropdown.index = selectedIndex;
-				instanceField.value = instanceAddressProperty.stringValue ?? string.Empty;
 				
-				// Register callback to store type when changed
-				dropdown.RegisterValueChangedCallback(evt =>
+				// Register callback to store type and addressable address when changed
+				dropdown.RegisterValueChangedCallback(_ =>
 				{
 					var newIndex = dropdown.index;
 					if (newIndex >= 0 && newIndex < _uiConfigsAddress.Count)
@@ -387,16 +376,11 @@ namespace GameLoversEditor.UiService
 						if (_uiTypesByAddress.TryGetValue(selectedAddress, out var selectedType))
 						{
 							typeNameProperty.stringValue = selectedType.AssemblyQualifiedName;
+							// Use the addressable address as the instance address
+							instanceAddressProperty.stringValue = selectedAddress;
 							SaveSetChanges();
 						}
 					}
-				});
-				
-				// Register callback for instance address field
-				instanceField.RegisterValueChangedCallback(evt =>
-				{
-					instanceAddressProperty.stringValue = evt.newValue ?? string.Empty;
-					SaveSetChanges();
 				});
 				
 				// Set initial value if property is empty
@@ -406,6 +390,7 @@ namespace GameLoversEditor.UiService
 					if (_uiTypesByAddress.TryGetValue(address, out var type))
 					{
 						typeNameProperty.stringValue = type.AssemblyQualifiedName;
+						instanceAddressProperty.stringValue = address;
 						serializedObject.ApplyModifiedProperties();
 					}
 				}
@@ -429,8 +414,8 @@ namespace GameLoversEditor.UiService
 
 				deleteButton.userData = clickHandler;
 				deleteButton.RegisterCallback(clickHandler);
-			}
 		}
+	}
 
 		private void OnPresenterItemsAdded(IEnumerable<int> indices, SerializedProperty uiEntriesProperty)
 		{
@@ -451,7 +436,8 @@ namespace GameLoversEditor.UiService
 					var instanceAddressProperty = entryProperty.FindPropertyRelative(nameof(UiSetEntry.InstanceAddress));
 					
 					typeNameProperty.stringValue = defaultType?.AssemblyQualifiedName ?? string.Empty;
-					instanceAddressProperty.stringValue = string.Empty;
+					// Use the addressable address as the instance address
+					instanceAddressProperty.stringValue = defaultAddress;
 				}
 			}
 		

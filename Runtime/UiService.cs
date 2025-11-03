@@ -29,17 +29,13 @@ namespace GameLovers.UiService
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
 		private readonly IList<UiInstanceId> _visibleUiList = new List<UiInstanceId>();
 		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
-		private readonly IDictionary<UiInstanceId, UiPresenter> _uiPresenters = new Dictionary<UiInstanceId, UiPresenter>();
+		private readonly IDictionary<Type, IList<UiInstance>> _uiPresenters = new Dictionary<Type, IList<UiInstance>>();
 
-		private readonly IReadOnlyDictionary<UiInstanceId, UiPresenter> _loadedPresentersReadOnly;
 		private readonly IReadOnlyDictionary<int, UiSetConfig> _uiSetsReadOnly;
 		private readonly IReadOnlyList<UiInstanceId> _visiblePresentersReadOnly;
 
 		private Transform _uiParent;
 		private bool _disposed;
-
-		/// <inheritdoc />
-		public IReadOnlyDictionary<UiInstanceId, UiPresenter> LoadedPresenters => _loadedPresentersReadOnly;
 
 		/// <inheritdoc />
 		public IReadOnlyDictionary<int, UiSetConfig> UiSets => _uiSetsReadOnly;
@@ -65,7 +61,6 @@ namespace GameLovers.UiService
 			CurrentAnalytics = _analytics;
 			
 			// Initialize readonly wrappers to avoid allocations on property access
-			_loadedPresentersReadOnly = new ReadOnlyDictionary<UiInstanceId, UiPresenter>(_uiPresenters);
 			_uiSetsReadOnly = new ReadOnlyDictionary<int, UiSetConfig>(_uiSets);
 			_visiblePresentersReadOnly = new ReadOnlyCollection<UiInstanceId>(_visibleUiList);
 		}
@@ -116,9 +111,22 @@ namespace GameLovers.UiService
 		}
 
 		/// <inheritdoc />
+		public List<UiInstance> GetLoadedPresenters()
+		{
+			var list = new List<UiInstance>();
+			
+			foreach (var kvp in _uiPresenters)
+			{
+				list.AddRange(kvp.Value);
+			}
+			
+			return list;
+		}
+
+		/// <inheritdoc />
 		public T GetUi<T>() where T : UiPresenter
 		{
-			return GetUi<T>(string.Empty);
+			return GetUi<T>(ResolveInstanceAddress(typeof(T)));
 		}
 		
 		/// <summary>
@@ -130,8 +138,7 @@ namespace GameLovers.UiService
 		/// </exception>
 		public T GetUi<T>(string instanceAddress) where T : UiPresenter
 		{
-			var instanceId = new UiInstanceId(typeof(T), instanceAddress);
-			if (!_uiPresenters.TryGetValue(instanceId, out var presenter))
+			if (!TryFindPresenter(typeof(T), instanceAddress, out var presenter))
 			{
 				throw new KeyNotFoundException($"UI presenter of type {typeof(T).Name} with instance '{instanceAddress ?? "default"}' not found.");
 			}
@@ -141,7 +148,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public bool IsVisible<T>() where T : UiPresenter
 		{
-			return IsVisible<T>(string.Empty);
+			return IsVisible<T>(ResolveInstanceAddress(typeof(T)));
 		}
 		
 		/// <summary>
@@ -190,11 +197,20 @@ namespace GameLovers.UiService
 			var type = ui.GetType().UnderlyingSystemType;
 			var instanceId = new UiInstanceId(type, instanceAddress);
 
-			if (!_uiPresenters.TryAdd(instanceId, ui))
+			// Check if already exists
+			if (TryFindPresenter(type, instanceAddress, out _))
 			{
 				Debug.LogWarning($"The Ui {instanceId} was already added");
 				return;
 			}
+			
+			// Add to type-indexed collection
+			if (!_uiPresenters.TryGetValue(type, out var instanceList))
+			{
+				instanceList = new List<UiInstance>();
+				_uiPresenters[type] = instanceList;
+			}
+			instanceList.Add(new UiInstance(type, instanceAddress, ui));
 			
 			// Ensure Canvas sorting order matches layer
 			EnsureCanvasSortingOrder(ui.gameObject, layer);
@@ -210,7 +226,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public bool RemoveUi(Type type)
 		{
-			return RemoveUi(type, string.Empty);
+			return RemoveUi(type, ResolveInstanceAddress(type));
 		}
 		
 		/// <summary>
@@ -224,7 +240,29 @@ namespace GameLovers.UiService
 			var instanceId = new UiInstanceId(type, instanceAddress);
 			_visibleUiList.Remove(instanceId);
 			
-			return _uiPresenters.Remove(instanceId);
+			if (!_uiPresenters.TryGetValue(type, out var instanceList))
+			{
+				return false;
+			}
+
+			// Find and remove the instance
+			for (int i = 0; i < instanceList.Count; i++)
+			{
+				if (instanceList[i].Address == instanceAddress)
+				{
+					instanceList.RemoveAt(i);
+					
+					// Clean up empty type entry
+					if (instanceList.Count == 0)
+					{
+						_uiPresenters.Remove(type);
+					}
+					
+					return true;
+				}
+			}
+			
+			return false;
 		}
 
 		/// <inheritdoc />
@@ -239,7 +277,7 @@ namespace GameLovers.UiService
 
 			foreach (var instanceId in set.UiInstanceIds)
 			{
-				if (!_uiPresenters.TryGetValue(instanceId, out var ui))
+				if (!TryFindPresenter(instanceId.PresenterType, instanceId.InstanceAddress, out var ui))
 				{
 					continue;
 				}
@@ -255,7 +293,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public async UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false, CancellationToken cancellationToken = default)
 		{
-			return await LoadUiAsync(type, string.Empty, openAfter, cancellationToken);
+			return await LoadUiAsync(type, ResolveInstanceAddress(type), openAfter, cancellationToken);
 		}
 		
 		/// <summary>
@@ -275,12 +313,12 @@ namespace GameLovers.UiService
 
 			var instanceId = new UiInstanceId(type, instanceAddress);
 			
-			if (_uiPresenters.TryGetValue(instanceId, out var ui))
+			if (TryFindPresenter(type, instanceAddress, out var existingUi))
 			{
 				Debug.LogWarning($"The Ui {instanceId} was already loaded");
-				ui.gameObject.SetActive(openAfter);
+				existingUi.gameObject.SetActive(openAfter);
 
-				return ui;
+				return existingUi;
 			}
 
 			_analytics.TrackLoadStart(type);
@@ -289,7 +327,7 @@ namespace GameLovers.UiService
 			var gameObject = await _assetLoader.InstantiatePrefab(config, _uiParent, cancellationToken);
 
 			// Double check if the same UiPresenter was already loaded. This can happen if the coder spam calls LoadUiAsync
-			if (_uiPresenters.TryGetValue(instanceId, out var uiDouble))
+			if (TryFindPresenter(type, instanceAddress, out var uiDouble))
 			{
 				_assetLoader.UnloadAsset(gameObject);
 				uiDouble.gameObject.SetActive(openAfter);
@@ -316,7 +354,7 @@ namespace GameLovers.UiService
 			{
 				foreach (var instanceId in set.UiInstanceIds)
 				{
-					if (_uiPresenters.ContainsKey(instanceId))
+					if (TryFindPresenter(instanceId.PresenterType, instanceId.InstanceAddress, out _))
 					{
 						continue;
 					}
@@ -331,7 +369,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void UnloadUi(Type type)
 		{
-			UnloadUi(type, string.Empty);
+			UnloadUi(type, ResolveInstanceAddress(type));
 		}
 		
 		/// <summary>
@@ -343,7 +381,7 @@ namespace GameLovers.UiService
 		{
 			var instanceId = new UiInstanceId(type, instanceAddress);
 			
-			if (!_uiPresenters.TryGetValue(instanceId, out var ui))
+			if (!TryFindPresenter(type, instanceAddress, out var ui))
 			{
 				throw new KeyNotFoundException($"Cannot unload UI {instanceId}. It is not loaded.");
 			}
@@ -364,7 +402,7 @@ namespace GameLovers.UiService
 
 			foreach (var instanceId in set.UiInstanceIds)
 			{
-				if (_uiPresenters.ContainsKey(instanceId))
+				if (TryFindPresenter(instanceId.PresenterType, instanceId.InstanceAddress, out _))
 				{
 					UnloadUi(instanceId.PresenterType, instanceId.InstanceAddress);
 				}
@@ -374,7 +412,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public async UniTask<UiPresenter> OpenUiAsync(Type type, CancellationToken cancellationToken = default)
 		{
-			return await OpenUiAsync(type, string.Empty, cancellationToken);
+			return await OpenUiAsync(type, ResolveInstanceAddress(type), cancellationToken);
 		}
 		
 		/// <summary>
@@ -395,7 +433,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public async UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData, CancellationToken cancellationToken = default) where TData : struct
 		{
-			return await OpenUiAsync(type, string.Empty, initialData, cancellationToken);
+			return await OpenUiAsync(type, ResolveInstanceAddress(type), initialData, cancellationToken);
 		}
 		
 		/// <summary>
@@ -428,7 +466,7 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void CloseUi(Type type, bool destroy = false)
 		{
-			CloseUi(type, string.Empty, destroy);
+			CloseUi(type, ResolveInstanceAddress(type), destroy);
 		}
 		
 		/// <summary>
@@ -450,10 +488,14 @@ namespace GameLovers.UiService
 			_analytics.TrackCloseStart(type);
 			
 			_visibleUiList.Remove(instanceId);
-			_uiPresenters[instanceId].InternalClose(destroy);
 			
-			var config = _uiConfigs[type];
-			_analytics.TrackCloseComplete(type, config.Layer, destroy);
+			if (TryFindPresenter(type, instanceAddress, out var presenter))
+			{
+				presenter.InternalClose(destroy);
+				
+				var config = _uiConfigs[type];
+				_analytics.TrackCloseComplete(type, config.Layer, destroy);
+			}
 		}
 
 		/// <inheritdoc />
@@ -461,7 +503,10 @@ namespace GameLovers.UiService
 		{
 			foreach (var instanceId in _visibleUiList)
 			{
-				_uiPresenters[instanceId].InternalClose(false);
+				if (TryFindPresenter(instanceId.PresenterType, instanceId.InstanceAddress, out var presenter))
+				{
+					presenter.InternalClose(false);
+				}
 			}
 
 			_visibleUiList.Clear();
@@ -476,7 +521,10 @@ namespace GameLovers.UiService
 
 				if (_uiConfigs[instanceId.PresenterType].Layer == layer)
 				{
-					_uiPresenters[instanceId].InternalClose(false);
+					if (TryFindPresenter(instanceId.PresenterType, instanceId.InstanceAddress, out var presenter))
+					{
+						presenter.InternalClose(false);
+					}
 					_visibleUiList.Remove(instanceId);
 				}
 			}
@@ -491,50 +539,6 @@ namespace GameLovers.UiService
 			{
 				CloseUi(instanceId.PresenterType, instanceId.InstanceAddress);
 			}
-		}
-
-		/// <summary>
-		/// Ensures the GameObject has proper Canvas sorting order set
-		/// </summary>
-		private void EnsureCanvasSortingOrder(GameObject gameObject, int layer)
-		{
-			if (gameObject.TryGetComponent<Canvas>(out var canvas))
-			{
-				canvas.sortingOrder = layer;
-			}
-			else if (gameObject.TryGetComponent<UnityEngine.UIElements.UIDocument>(out var document))
-			{
-				document.sortingOrder = layer;
-			}
-		}
-
-		private void OpenUi(UiInstanceId instanceId)
-		{
-			if (_visibleUiList.Contains(instanceId))
-			{
-				Debug.LogWarning($"Is trying to open the {instanceId} ui but is already open");
-				return;
-			}
-
-			_analytics.TrackOpenStart(instanceId.PresenterType);
-			
-			_uiPresenters[instanceId].InternalOpen();
-			_visibleUiList.Add(instanceId);
-			
-			var config = _uiConfigs[instanceId.PresenterType];
-			_analytics.TrackOpenComplete(instanceId.PresenterType, config.Layer);
-		}
-
-		private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type, string instanceAddress, CancellationToken cancellationToken = default)
-		{
-			var instanceId = new UiInstanceId(type, instanceAddress);
-			
-			if (!_uiPresenters.TryGetValue(instanceId, out var ui))
-			{
-				ui = await LoadUiAsync(type, instanceAddress, false, cancellationToken);
-			}
-
-			return ui;
 		}
 
 		/// <summary>
@@ -559,7 +563,16 @@ namespace GameLovers.UiService
 			CloseAllUi();
 
 			// Unload all UI presenters
-			var presenterInstances = new List<UiInstanceId>(_uiPresenters.Keys);
+			var presenterInstances = new List<UiInstanceId>();
+			foreach (var kvp in _uiPresenters)
+			{
+				var type = kvp.Key;
+				foreach (var instance in kvp.Value)
+				{
+					presenterInstances.Add(new UiInstanceId(type, instance.Address));
+				}
+			}
+			
 			foreach (var instanceId in presenterInstances)
 			{
 				try
@@ -588,6 +601,109 @@ namespace GameLovers.UiService
 				Object.Destroy(_uiParent.gameObject);
 				_uiParent = null;
 			}
+		}
+
+		/// <summary>
+		/// Attempts to find a presenter by type and address
+		/// </summary>
+		/// <param name="type">The type of UI presenter to find</param>
+		/// <param name="address">The instance address</param>
+		/// <param name="presenter">The found presenter, or null if not found</param>
+		/// <returns>True if the presenter was found, false otherwise</returns>
+		private bool TryFindPresenter(Type type, string address, out UiPresenter presenter)
+		{
+			if (_uiPresenters.TryGetValue(type, out var instances))
+			{
+				foreach (var instance in instances)
+				{
+					if (instance.Address == address)
+					{
+						presenter = instance.Presenter;
+						return true;
+					}
+				}
+			}
+
+			presenter = null;
+			return false;
+		}
+
+		private void EnsureCanvasSortingOrder(GameObject gameObject, int layer)
+		{
+			if (gameObject.TryGetComponent<Canvas>(out var canvas))
+			{
+				canvas.sortingOrder = layer;
+			}
+			else if (gameObject.TryGetComponent<UnityEngine.UIElements.UIDocument>(out var document))
+			{
+				document.sortingOrder = layer;
+			}
+		}
+
+		private void OpenUi(UiInstanceId instanceId)
+		{
+			if (_visibleUiList.Contains(instanceId))
+			{
+				Debug.LogWarning($"Is trying to open the {instanceId} ui but is already open");
+				return;
+			}
+
+			_analytics.TrackOpenStart(instanceId.PresenterType);
+			
+			if (TryFindPresenter(instanceId.PresenterType, instanceId.InstanceAddress, out var presenter))
+			{
+				presenter.InternalOpen();
+				_visibleUiList.Add(instanceId);
+				
+				var config = _uiConfigs[instanceId.PresenterType];
+				_analytics.TrackOpenComplete(instanceId.PresenterType, config.Layer);
+			}
+		}
+
+		private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type, string instanceAddress, CancellationToken cancellationToken = default)
+		{
+			if (!TryFindPresenter(type, instanceAddress, out var ui))
+			{
+				ui = await LoadUiAsync(type, instanceAddress, false, cancellationToken);
+			}
+
+			return ui;
+		}
+
+		/// <summary>
+		/// Resolves the instance address for a given type when no specific instance is requested.
+		/// If only one instance of the type exists, returns that instance's address.
+		/// If multiple instances exist, returns the first one found and logs a warning.
+		/// If no instances exist, returns string.Empty (default).
+		/// </summary>
+		/// <param name="type">The type of UI presenter to resolve</param>
+		/// <returns>The resolved instance address</returns>
+		private string ResolveInstanceAddress(Type type)
+		{
+			if (!_uiPresenters.TryGetValue(type, out var instances))
+			{
+				// No instances found, return default (string.Empty)
+				return string.Empty;
+			}
+			
+			if (instances.Count == 1)
+			{
+				return instances[0].Address;
+			}
+			
+			// Multiple instances found - log warning and return the first
+			var instanceNames = new List<string>(instances.Count);
+			foreach (var instance in instances)
+			{
+				instanceNames.Add(string.IsNullOrEmpty(instance.Address) ? "default" : instance.Address);
+			}
+			
+			var firstMatch = instances[0];
+			var selectedName = string.IsNullOrEmpty(firstMatch.Address) ? "default" : firstMatch.Address;
+			Debug.LogWarning($"[UiService] Ambiguous call for {type.Name}: found {instances.Count} instances [{string.Join(", ", instanceNames)}]. " +
+							$"Using '{selectedName}'. Specify instance address explicitly to avoid ambiguity.");
+			
+			return firstMatch.Address;
 		}
 	}
 }
