@@ -147,7 +147,8 @@ namespace GameLoversEditor.UiService
 			
 			if (analytics == null)
 			{
-				var warningBox = new HelpBox("No UiService instance found. Create a UiService to enable analytics tracking.", HelpBoxMessageType.Warning);
+				var warningBox = new HelpBox("No UiService instance found. (NullAnalytics is used by default)\n" +
+				"Create a UiService with UiAnalytics to enable analytics tracking. (e.g. var uiService = new UiService(new UiAssetLoader(), new UiAnalytics());)", HelpBoxMessageType.Warning);
 				_scrollView.Add(warningBox);
 				UpdateFooter();
 				return;

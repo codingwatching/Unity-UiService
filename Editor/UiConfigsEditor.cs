@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GameLovers.UiService;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
@@ -15,9 +16,8 @@ namespace GameLoversEditor.UiService
 	/// <summary>
 	/// Helps selecting the <see cref="UiConfigs"/> asset file in the Editor
 	/// </summary>
-	public static class UiConfigsSelect
+	public static class UiConfigsMenuItems
 	{
-		
 		[MenuItem("Tools/UI Service/Select UiConfigs")]
 		private static void SelectUiConfigs()
 		{
@@ -34,9 +34,33 @@ namespace GameLoversEditor.UiService
 			}
 
 			Selection.activeObject = scriptableObject;
+			FocusInspectorWindow();
+		}
+
+		[MenuItem("Tools/UI Service/Layer Visualizer")]
+		public static void ShowLayerVisualizer()
+		{
+			// Set the pref BEFORE selecting so OnEnable reads the correct value
+			EditorPrefs.SetBool("UiConfigsEditor_ShowVisualizer", true);
+			
+			SelectUiConfigs();
+
+			// Force inspector refresh to rebuild the UI
+			ActiveEditorTracker.sharedTracker.ForceRebuild();
+		}
+		
+		private static void FocusInspectorWindow()
+		{
+			// Get the Inspector window type using reflection
+			var inspectorType = typeof(Editor).Assembly.GetType("UnityEditor.InspectorWindow");
+			if (inspectorType != null)
+			{
+				// Focus or create the Inspector window
+				EditorWindow.GetWindow(inspectorType);
+			}
 		}
 	}
-	
+
 	/// <summary>
 	/// Improves the inspector visualization for the <see cref="UiConfigs"/> scriptable object
 	/// </summary>
@@ -66,12 +90,17 @@ namespace GameLoversEditor.UiService
 			"Presenters are loaded in the order listed (top to bottom).\n\n" +
 			"Each UI's instance address is automatically set to its Addressable address from the config.";
 
+		private const string VisualizerPrefsKey = "UiConfigsEditor_ShowVisualizer";
+
 		private Dictionary<string, string> _assetPathLookup;
 		private List<string> _uiConfigsAddress;
 		private Dictionary<string, Type> _uiTypesByAddress; // Maps addressable address to Type
 		private UiConfigs _scriptableObject;
 		private SerializedProperty _configsProperty;
 		private SerializedProperty _setsProperty;
+		private bool _showVisualizer;
+		private VisualElement _visualizerContainer;
+		private string _visualizerSearchFilter = "";
 
 		private void OnEnable()
 		{
@@ -91,6 +120,20 @@ namespace GameLoversEditor.UiService
 			
 			_configsProperty = serializedObject.FindProperty("_configs");
 			_setsProperty = serializedObject.FindProperty("_sets");
+			
+			// Load visualizer visibility state
+			_showVisualizer = EditorPrefs.GetBool(VisualizerPrefsKey, false);
+		}
+		
+		/// <summary>
+		/// Public method to show the visualizer, used by menu items
+		/// </summary>
+		public static void ShowVisualizerForConfigs(UiConfigs configs)
+		{
+			if (configs == null) return;
+			
+			Selection.activeObject = configs;
+			EditorPrefs.SetBool(VisualizerPrefsKey, true);
 		}
 
 		/// <inheritdoc />
@@ -101,6 +144,10 @@ namespace GameLoversEditor.UiService
 			root.style.paddingBottom = 5;
 			root.style.paddingLeft = 3;
 			root.style.paddingRight = 3;
+
+			// Section 0: Layer Visualizer (collapsible)
+			var visualizerSection = CreateVisualizerSection();
+			root.Add(visualizerSection);
 
 			// Section 1: UI Config Explanation
 			var configHelpBox = new HelpBox(UiConfigExplanation, HelpBoxMessageType.Info);
@@ -554,6 +601,338 @@ namespace GameLoversEditor.UiService
 				EditorUtility.SetDirty(prefab);
 				AssetDatabase.SaveAssets();
 			}
+		}
+		
+		private VisualElement CreateVisualizerSection()
+		{
+			var section = new VisualElement();
+			section.style.marginBottom = 15;
+			
+			// Create header with toggle button
+			var header = new VisualElement();
+			header.style.flexDirection = FlexDirection.Row;
+			header.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+			header.style.paddingTop = 5;
+			header.style.paddingBottom = 5;
+			header.style.paddingLeft = 5;
+			header.style.paddingRight = 5;
+			header.style.borderTopLeftRadius = 4;
+			header.style.borderTopRightRadius = 4;
+			
+			var toggleButton = new Button(() => ToggleVisualizer())
+			{
+				text = _showVisualizer ? "▼" : "▶"
+			};
+			toggleButton.style.width = 25;
+			toggleButton.style.marginRight = 5;
+			
+			var titleLabel = new Label("UI Layer Hierarchy Visualizer");
+			titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			titleLabel.style.flexGrow = 1;
+			
+			header.Add(toggleButton);
+			header.Add(titleLabel);
+			section.Add(header);
+			
+			// Create visualizer container
+			_visualizerContainer = new VisualElement();
+			_visualizerContainer.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f);
+			_visualizerContainer.style.paddingTop = 10;
+			_visualizerContainer.style.paddingBottom = 10;
+			_visualizerContainer.style.paddingLeft = 5;
+			_visualizerContainer.style.paddingRight = 5;
+			_visualizerContainer.style.borderBottomLeftRadius = 4;
+			_visualizerContainer.style.borderBottomRightRadius = 4;
+			_visualizerContainer.style.display = _showVisualizer ? DisplayStyle.Flex : DisplayStyle.None;
+			
+			// Add search toolbar
+			var searchToolbar = CreateVisualizerSearchToolbar();
+			_visualizerContainer.Add(searchToolbar);
+			
+			// Add visualizer content
+			var content = CreateVisualizerContent();
+			_visualizerContainer.Add(content);
+			
+			section.Add(_visualizerContainer);
+			
+			return section;
+		}
+		
+		private void ToggleVisualizer()
+		{
+			_showVisualizer = !_showVisualizer;
+			EditorPrefs.SetBool(VisualizerPrefsKey, _showVisualizer);
+			
+			if (_visualizerContainer != null)
+			{
+				_visualizerContainer.style.display = _showVisualizer ? DisplayStyle.Flex : DisplayStyle.None;
+				
+				// Update toggle button text
+				var toggleButton = _visualizerContainer.parent.Q<Button>();
+				if (toggleButton != null)
+				{
+					toggleButton.text = _showVisualizer ? "▼" : "▶";
+				}
+				
+				// Refresh content if showing
+				if (_showVisualizer)
+				{
+					RefreshVisualizerContent();
+				}
+			}
+		}
+		
+		private VisualElement CreateVisualizerSearchToolbar()
+		{
+			var toolbar = new VisualElement();
+			toolbar.style.flexDirection = FlexDirection.Row;
+			toolbar.style.backgroundColor = new Color(0.25f, 0.25f, 0.25f);
+			toolbar.style.paddingTop = 3;
+			toolbar.style.paddingBottom = 3;
+			toolbar.style.paddingLeft = 5;
+			toolbar.style.paddingRight = 5;
+			toolbar.style.marginBottom = 10;
+			toolbar.style.borderTopLeftRadius = 3;
+			toolbar.style.borderTopRightRadius = 3;
+			toolbar.style.borderBottomLeftRadius = 3;
+			toolbar.style.borderBottomRightRadius = 3;
+			
+			var spacer = new VisualElement();
+			spacer.style.flexGrow = 1;
+			toolbar.Add(spacer);
+			
+			var searchLabel = new Label("Search:");
+			searchLabel.style.marginRight = 5;
+			searchLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+			toolbar.Add(searchLabel);
+			
+			var searchField = new ToolbarSearchField();
+			searchField.style.width = 200;
+			searchField.value = _visualizerSearchFilter;
+			searchField.RegisterValueChangedCallback(evt =>
+			{
+				_visualizerSearchFilter = evt.newValue;
+				RefreshVisualizerContent();
+			});
+			toolbar.Add(searchField);
+			
+			return toolbar;
+		}
+		
+		private ScrollView CreateVisualizerContent()
+		{
+			var scrollView = new ScrollView();
+			scrollView.style.maxHeight = 500;
+			scrollView.style.marginTop = 5;
+			
+			BuildVisualizerLayerHierarchy(scrollView);
+			
+			return scrollView;
+		}
+		
+		private void RefreshVisualizerContent()
+		{
+			if (_visualizerContainer == null)
+				return;
+				
+			var scrollView = _visualizerContainer.Q<ScrollView>();
+			if (scrollView != null)
+			{
+				scrollView.Clear();
+				BuildVisualizerLayerHierarchy(scrollView);
+			}
+		}
+		
+		private void BuildVisualizerLayerHierarchy(ScrollView scrollView)
+		{
+			var configs = _scriptableObject?.Configs;
+			if (configs == null || configs.Count == 0)
+			{
+				var infoBox = new HelpBox("No UI configurations found", HelpBoxMessageType.Info);
+				scrollView.Add(infoBox);
+				return;
+			}
+			
+			// Filter configs
+			var filteredConfigs = FilterVisualizerConfigs(configs);
+			
+			// Group by layer
+			var layerGroups = filteredConfigs
+				.GroupBy(c => c.Layer)
+				.OrderBy(g => g.Key)
+				.ToList();
+			
+			var layersContainer = new VisualElement();
+			layersContainer.style.marginLeft = 5;
+			layersContainer.style.marginRight = 5;
+			
+			foreach (var layerGroup in layerGroups)
+			{
+				var layerElement = CreateVisualizerLayerElement(layerGroup.Key, layerGroup.ToList());
+				layersContainer.Add(layerElement);
+			}
+			
+			scrollView.Add(layersContainer);
+			
+			// Statistics
+			var statsElement = CreateVisualizerStatistics(filteredConfigs);
+			scrollView.Add(statsElement);
+		}
+		
+		private List<UiConfig> FilterVisualizerConfigs(List<UiConfig> configs)
+		{
+			if (string.IsNullOrEmpty(_visualizerSearchFilter))
+			{
+				return configs;
+			}
+			
+			return configs.Where(c =>
+				c.UiType.Name.ToLower().Contains(_visualizerSearchFilter.ToLower()) ||
+				c.AddressableAddress.ToLower().Contains(_visualizerSearchFilter.ToLower())
+			).ToList();
+		}
+		
+		private VisualElement CreateVisualizerLayerElement(int layer, List<UiConfig> configs)
+		{
+			var layerColor = GetVisualizerLayerColor(layer);
+			
+			var container = new VisualElement();
+			container.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.3f);
+			container.style.borderTopLeftRadius = 4;
+			container.style.borderTopRightRadius = 4;
+			container.style.borderBottomLeftRadius = 4;
+			container.style.borderBottomRightRadius = 4;
+			container.style.marginBottom = 5;
+			container.style.paddingTop = 5;
+			container.style.paddingBottom = 5;
+			
+			// Layer header
+			var header = new VisualElement();
+			header.style.flexDirection = FlexDirection.Row;
+			header.style.backgroundColor = layerColor;
+			header.style.paddingTop = 5;
+			header.style.paddingBottom = 5;
+			header.style.paddingLeft = 10;
+			header.style.paddingRight = 10;
+			header.style.marginBottom = 5;
+			header.style.alignItems = Align.Center;
+			
+			// Create text container with shadow for better readability
+			var textContainer = new VisualElement();
+			textContainer.style.flexDirection = FlexDirection.Row;
+			textContainer.style.backgroundColor = new Color(0, 0, 0, 0.5f);
+			textContainer.style.paddingLeft = 8;
+			textContainer.style.paddingRight = 8;
+			textContainer.style.paddingTop = 3;
+			textContainer.style.paddingBottom = 3;
+			textContainer.style.borderTopLeftRadius = 3;
+			textContainer.style.borderTopRightRadius = 3;
+			textContainer.style.borderBottomLeftRadius = 3;
+			textContainer.style.borderBottomRightRadius = 3;
+			
+			var layerLabel = new Label($"Layer {layer}");
+			layerLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			layerLabel.style.fontSize = 13;
+			layerLabel.style.color = Color.white;
+			layerLabel.style.textShadow = new TextShadow
+			{
+				offset = new Vector2(1, 1),
+				blurRadius = 2,
+				color = new Color(0, 0, 0, 0.8f)
+			};
+			textContainer.Add(layerLabel);
+			
+			var countLabel = new Label($"({configs.Count} UI{(configs.Count > 1 ? "s" : "")})");
+			countLabel.style.fontSize = 11;
+			countLabel.style.color = new Color(1f, 1f, 1f);
+			countLabel.style.marginLeft = 5;
+			countLabel.style.textShadow = new TextShadow
+			{
+				offset = new Vector2(1, 1),
+				blurRadius = 2,
+				color = new Color(0, 0, 0, 0.8f)
+			};
+			textContainer.Add(countLabel);
+			
+			header.Add(textContainer);
+			container.Add(header);
+			
+			// UI items in this layer
+			foreach (var config in configs)
+			{
+				var configItem = CreateVisualizerUiConfigItem(config);
+				container.Add(configItem);
+			}
+			
+			return container;
+		}
+		
+		private VisualElement CreateVisualizerUiConfigItem(UiConfig config)
+		{
+			var item = new VisualElement();
+			item.style.flexDirection = FlexDirection.Row;
+			item.style.paddingLeft = 20;
+			item.style.paddingRight = 10;
+			item.style.paddingTop = 2;
+			item.style.paddingBottom = 2;
+			
+			// Type name
+			var typeLabel = new Label(config.UiType.Name);
+			typeLabel.style.width = 200;
+			item.Add(typeLabel);
+			
+			// Address
+			var addressLabel = new Label(config.AddressableAddress);
+			addressLabel.style.fontSize = 10;
+			addressLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
+			addressLabel.style.flexGrow = 1;
+			item.Add(addressLabel);
+			
+			// Sync indicator
+			if (config.LoadSynchronously)
+			{
+				var syncLabel = new Label("[SYNC]");
+				syncLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+				syncLabel.style.width = 50;
+				syncLabel.style.color = new Color(1, 0.8f, 0);
+				item.Add(syncLabel);
+			}
+			
+			return item;
+		}
+		
+		private VisualElement CreateVisualizerStatistics(List<UiConfig> configs)
+		{
+			var container = new VisualElement();
+			container.style.marginTop = 10;
+			container.style.marginLeft = 5;
+			container.style.marginBottom = 10;
+			
+			var titleLabel = new Label("Statistics");
+			titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			titleLabel.style.marginBottom = 5;
+			container.Add(titleLabel);
+			
+			var statsContainer = new VisualElement();
+			statsContainer.style.marginLeft = 15;
+			
+			statsContainer.Add(new Label($"Total UIs: {configs.Count}"));
+			statsContainer.Add(new Label($"Layers Used: {configs.Select(c => c.Layer).Distinct().Count()}"));
+			statsContainer.Add(new Label($"Synchronous Loads: {configs.Count(c => c.LoadSynchronously)}"));
+			statsContainer.Add(new Label($"Async Loads: {configs.Count(c => !c.LoadSynchronously)}"));
+			
+			container.Add(statsContainer);
+			
+			return container;
+		}
+		
+		private Color GetVisualizerLayerColor(int layer)
+		{
+			if (layer < 0) return new Color(0.8f, 0.2f, 0.2f);
+			if (layer == 0) return new Color(0.3f, 0.3f, 0.3f);
+			
+			var hue = (layer * 0.1f) % 1f;
+			return Color.HSVToRGB(hue, 0.5f, 0.9f);
 		}
 		
 		private static List<AddressableAssetEntry> GetAssetList()
