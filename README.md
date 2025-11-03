@@ -17,8 +17,10 @@ A powerful and flexible UI management system for Unity that provides a robust ab
 - [Core Concepts](#core-concepts)
   - [Editor Windows](#editor-windows)
   - [UI Presenter](#ui-presenter)
+  - [Presenter Features](#presenter-features)
   - [UI Layers](#ui-layers)
   - [UI Sets](#ui-sets)
+  - [Multi-Instance Support](#multi-instance-support)
   - [UI Configuration](#ui-configuration)
 - [API Documentation](#api-documentation)
   - [Managing UI Lifecycle](#managing-ui-lifecycle)
@@ -29,6 +31,7 @@ A powerful and flexible UI management system for Unity that provides a robust ab
   - [Helper Views](#helper-views)
 - [Performance Optimization](#performance-optimization)
 - [Troubleshooting](#troubleshooting)
+- [Examples](#examples)
 - [Contributing](#contributing)
 - [Support](#support)
 - [License](#license)
@@ -36,12 +39,15 @@ A powerful and flexible UI management system for Unity that provides a robust ab
 ## Key Features
 
 - **🎭 UI Presenter Pattern** - Clean separation of UI logic with lifecycle management
+- **🧩 Feature Composition** - Modular feature system for extending presenter behavior
 - **📚 Layer-based Organization** - Organize UI elements by depth layers
 - **🔄 Async Loading** - Load UI assets asynchronously with UniTask support
 - **📦 UI Sets** - Group related UI elements for batch operations
+- **🔀 Multi-Instance Support** - Multiple instances of the same UI type with unique addresses
 - **💾 Memory Management** - Efficient loading/unloading of UI assets
 - **🎯 Type-safe API** - Generic methods for compile-time safety
 - **📊 Analytics & Performance Tracking** - Optional analytics system with dependency injection
+- **🛠️ Editor Tools** - Three powerful editor windows for debugging and monitoring
 - **📱 Responsive Design** - Built-in support for safe areas and screen size adjustments
 - **🔧 Addressables Integration** - Seamless integration with Unity's Addressables system
 - **🎨 UI Toolkit Support** - Compatible with both uGUI and UI Toolkit
@@ -49,7 +55,7 @@ A powerful and flexible UI management system for Unity that provides a robust ab
 ## System Requirements
 
 - **Unity** 6000.0 or higher
-- **Addressables** 1.22.0 or higher
+- **Addressables** 2.6.0 or higher
 - **UniTask** 2.5.10 or higher
 - **TextMeshPro** 3.0.9 or higher
 - **Git** (for installation via Package Manager)
@@ -86,17 +92,42 @@ Add the following line to your project's `Packages/manifest.json`:
   ├── CHANGELOG.md          # Version history and release notes
   ├── LICENSE.md            # MIT license terms
   ├── Runtime/              # Core runtime scripts for the UI service
-  │   ├── *.asmdef          # Assembly definition for runtime code
-  │   ├── Core Services     # Main UI service implementation and interfaces
-  │   ├── Presenters        # Base classes for UI presenters and UI Toolkit support
-  │   ├── Configuration     # ScriptableObject configs for UI setup
-  │   ├── Asset Loading     # Addressables integration and loading utilities
-  │   ├── Delayers/         # Animation and time-based delay implementations
-  │   └── Views/            # Helper components for responsive and optimized UI
-  └── Editor/               # Unity Editor extensions and custom inspectors
-      ├── *.asmdef          # Assembly definition for editor code
-      ├── Config Editors    # Custom inspectors for UI configuration assets
-      └── View Editors      # Custom editors for specialized UI components
+  │   ├── GameLovers.UiService.asmdef  # Assembly definition for runtime code
+  │   ├── IUiService.cs                # Main service interfaces
+  │   ├── UiService.cs                 # Core service implementation
+  │   ├── UiPresenter.cs               # Base presenter classes
+  │   ├── UiConfigs.cs                 # Configuration ScriptableObjects
+  │   ├── UiInstanceId.cs              # Multi-instance support structure
+  │   ├── UiSetConfig.cs               # UI set configuration
+  │   ├── UiAnalytics.cs               # Analytics and performance tracking
+  │   ├── UiAssetLoader.cs             # Addressables integration
+  │   ├── Features/                    # Composable presenter features
+  │   │   ├── IPresenterFeature.cs     # Feature interface
+  │   │   ├── PresenterFeatureBase.cs  # Base feature implementation
+  │   │   ├── AnimationDelayFeature.cs # Animation-based delays
+  │   │   ├── TimeDelayFeature.cs      # Time-based delays
+  │   │   └── UiToolkitPresenterFeature.cs # UI Toolkit integration
+  │   └── Views/                       # Helper view components
+  │       ├── SafeAreaHelperView.cs
+  │       ├── NonDrawingView.cs
+  │       ├── InteractableTextView.cs
+  │       └── AdjustScreenSizeFitterView.cs
+  ├── Editor/               # Unity Editor extensions and tools
+  │   ├── GameLovers.UiService.Editor.asmdef # Assembly definition for editor code
+  │   ├── UiConfigsEditor.cs           # Custom inspector for UiConfigs with visual hierarchy
+  │   ├── UiPresenterEditor.cs         # Custom inspector for presenters with quick controls
+  │   ├── UiAnalyticsWindow.cs         # Real-time analytics monitoring window
+  │   ├── UiServiceHierarchyWindow.cs  # Live UI hierarchy debugging window
+  │   ├── DefaultUiConfigsEditor.cs    # Default configuration setup
+  │   └── NonDrawingViewEditor.cs      # Custom inspector for NonDrawingView
+  └── Samples~/             # Example implementations
+      ├── README.md                    # Samples documentation
+      ├── BasicUiFlow/                 # Basic presenter usage
+      ├── DataPresenter/               # Data-driven UI examples
+      ├── DelayedPresenter/            # Time and animation delay examples
+      ├── UiToolkit/                   # UI Toolkit integration
+      ├── DelayedUiToolkit/            # Combined features examples
+      └── Analytics/                   # Analytics integration example
 ```
 
 ## Dependencies
@@ -217,9 +248,9 @@ public class GameManager : MonoBehaviour
 
 ### Editor Windows
 
-The package includes powerful editor windows for managing and monitoring your UI system:
+The package includes three powerful editor windows for managing, monitoring, and debugging your UI system:
 
-#### Analytics Window
+#### 1. Analytics Window
 
 Monitor UI performance metrics and events in real-time during play mode.
 
@@ -245,9 +276,18 @@ Monitor UI performance metrics and events in real-time during play mode.
 - **Load Time**: <0.1s (green), <0.5s (yellow), ≥0.5s (red)
 - **Open/Close Time**: <0.05s (green), <0.2s (yellow), ≥0.2s (red)
 
-#### Hierarchy Window
+**Note:** Analytics must be enabled in your UiService initialization to see data:
+```csharp
+var analytics = new UiAnalytics();
+var uiService = new UiService(new UiAssetLoader(), analytics);
+```
+
+#### 2. Hierarchy Window
 
 View and control all active UI presenters in the scene during play mode.
+
+**Opening the Window:**
+- Navigate to **Tools → UI Service → Hierarchy Window**
 
 **Features:**
 - **Live UI Hierarchy** - See all loaded presenters grouped by layer
@@ -255,6 +295,7 @@ View and control all active UI presenters in the scene during play mode.
 - **Quick Controls** - Open/close any UI with one click
 - **Detailed Inspector** - Expand presenters to see full details
 - **GameObject Navigation** - Select and ping presenters in the hierarchy
+- **Instance Information** - View instance addresses for multi-instance UIs
 - **Batch Operations** - Close all UIs at once
 - **Auto-refresh** - Updates every 0.5 seconds automatically
 
@@ -265,24 +306,38 @@ View and control all active UI presenters in the scene during play mode.
 4. Click on any presenter to expand details
 5. Use quick controls to open/close/destroy UIs
 
-#### Layer Visualizer
+**Keyboard Shortcuts:**
+- Click presenter name to select in hierarchy
+- "Open" button to open closed UIs
+- "Close" button to close open UIs
 
-Visualize your UI configuration and layer organization before entering play mode.
+#### 3. UiConfigs Inspector (Layer Visualizer)
+
+Built-in custom inspector for visualizing your UI configuration and layer organization.
 
 **Features:**
-- **Layer Organization** - See all UIs grouped by layer number
+- **Visual Layer Hierarchy** - See all UIs grouped by layer number in the inspector
 - **Color-coded Layers** - Each layer has a unique color for easy identification
-- **Configuration Overview** - View UiConfigs structure without playing
-- **Search & Filter** - Find specific UIs quickly
-- **Statistics** - Total UIs, layer counts, sync vs async loading
+- **Configuration Overview** - View UiConfigs structure directly in the inspector
+- **Drag & Drop Support** - Reorder UI configs and sets with drag-and-drop
+- **Collapsible Sections** - Expand/collapse layers and sets for better organization
+- **Search & Filter** - Find specific UIs quickly within the inspector
+- **Statistics Panel** - Total UIs, layer distribution, sync vs async loading stats
 - **Synchronous Loading Indicators** - Clearly marks UIs that load synchronously
+- **UI Set Management** - Create, edit, and organize UI sets visually
 
 **Usage:**
-1. Open **Tools → UI Service → Layer Visualizer**
-2. Select or auto-find your UiConfigs asset
-3. Browse layer hierarchy and configuration
-4. Use search to filter specific UIs
+1. Select your `UiConfigs` ScriptableObject in the Project window
+2. View the enhanced inspector with visual layer hierarchy
+3. Browse layer organization and configuration
+4. Use drag-and-drop to reorder items
 5. Review statistics for optimization insights
+
+**Inspector Sections:**
+- **Configuration** - Main UI configuration list with layer visualization
+- **UI Sets** - Manage groups of related UIs
+- **Statistics** - Overview of your UI configuration
+- **Layer Hierarchy** - Visual tree view of all layers and their UIs
 
 ### UI Presenter
 
@@ -355,21 +410,92 @@ var profileData = new PlayerProfileData
 await _uiService.OpenUiAsync<PlayerProfilePresenter, PlayerProfileData>(profileData);
 ```
 
-#### UI Toolkit Integration
+---
 
-For UI Toolkit (UI Elements) support:
+### Presenter Features
+
+The UI Service uses a **feature-based composition system** that allows you to extend presenter behavior without inheritance complexity. Features are self-contained components that add specific capabilities to your presenters.
+
+#### Built-in Features
+
+##### 1. TimeDelayFeature
+
+Adds time-based delays to UI opening and closing:
 
 ```csharp
-public class UIToolkitMenu : UiToolkitPresenter
+[RequireComponent(typeof(TimeDelayFeature))]
+public class DelayedPopup : UiPresenter
 {
-    [SerializeField] private UIDocument _document;
+    [SerializeField] private TimeDelayFeature _delayFeature;
+    
+    protected override void OnInitialized()
+    {
+        // Subscribe to delay completion events
+        _delayFeature.OnOpenCompletedEvent += OnDelayComplete;
+    }
+    
+    private void OnDelayComplete()
+    {
+        Debug.Log("Opening delay completed!");
+    }
+    
+    private void OnDestroy()
+    {
+        if (_delayFeature != null)
+            _delayFeature.OnOpenCompletedEvent -= OnDelayComplete;
+    }
+}
+```
+
+**Configuration:**
+- `Open Delay In Seconds` - Time to wait after opening (default: 0.5s)
+- `Close Delay In Seconds` - Time to wait before closing (default: 0.3s)
+
+##### 2. AnimationDelayFeature
+
+Synchronizes UI lifecycle with animation clips:
+
+```csharp
+[RequireComponent(typeof(AnimationDelayFeature))]
+public class AnimatedPopup : UiPresenter
+{
+    [SerializeField] private AnimationDelayFeature _animationFeature;
+    
+    protected override void OnInitialized()
+    {
+        _animationFeature.OnOpenCompletedEvent += OnAnimationComplete;
+    }
+    
+    private void OnAnimationComplete()
+    {
+        Debug.Log("Animation completed!");
+    }
+}
+```
+
+**Configuration:**
+- `Animation Component` - Auto-detected or manually assigned
+- `Intro Animation Clip` - Plays when opening
+- `Outro Animation Clip` - Plays when closing
+
+**Note:** Delays automatically match animation clip lengths!
+
+##### 3. UiToolkitPresenterFeature
+
+Provides UI Toolkit (UI Elements) integration:
+
+```csharp
+[RequireComponent(typeof(UiToolkitPresenterFeature))]
+public class UIToolkitMenu : UiPresenter
+{
+    [SerializeField] private UiToolkitPresenterFeature _toolkitFeature;
     
     private Button _playButton;
     private Label _titleLabel;
     
     protected override void OnInitialized()
     {
-        var root = _document.rootVisualElement;
+        var root = _toolkitFeature.Root;
         
         _playButton = root.Q<Button>("play-button");
         _titleLabel = root.Q<Label>("title-label");
@@ -384,41 +510,97 @@ public class UIToolkitMenu : UiToolkitPresenter
 }
 ```
 
-#### Delayed UI Presenter
+**Configuration:**
+- `Document` - Auto-detects `UIDocument` component
+- Access via `_toolkitFeature.Document` or `_toolkitFeature.Root`
 
-For UI with opening/closing animations:
+#### Composing Multiple Features
+
+Features can be freely combined:
 
 ```csharp
-public class SlideInPanel : DelayUiPresenter
+[RequireComponent(typeof(TimeDelayFeature))]
+[RequireComponent(typeof(UiToolkitPresenterFeature))]
+public class DelayedUiToolkitPresenter : UiPresenter
 {
-    [SerializeField] private RectTransform _panel;
-    [SerializeField] private float _slideDuration = 0.5f;
+    [SerializeField] private TimeDelayFeature _delayFeature;
+    [SerializeField] private UiToolkitPresenterFeature _toolkitFeature;
     
-    protected override void ConfigureDelayers()
+    protected override void OnInitialized()
     {
-        OpeningDelayer = new TimeDelayer(_slideDuration);
-        ClosingDelayer = new TimeDelayer(_slideDuration);
+        // Disable UI until delay completes
+        _toolkitFeature.Root.SetEnabled(false);
+        _delayFeature.OnOpenCompletedEvent += EnableUI;
     }
     
-    protected override void OnPreOpen()
+    private void EnableUI()
     {
-        // Position panel off-screen
-        _panel.anchoredPosition = new Vector2(-1000, 0);
-    }
-    
-    protected override void OnOpening()
-    {
-        // Animate panel sliding in
-        _panel.DOAnchorPosX(0, _slideDuration);
-    }
-    
-    protected override void OnClosing()
-    {
-        // Animate panel sliding out
-        _panel.DOAnchorPosX(-1000, _slideDuration);
+        _toolkitFeature.Root.SetEnabled(true);
     }
 }
 ```
+
+#### Creating Custom Features
+
+Extend `PresenterFeatureBase` to create your own features:
+
+```csharp
+using UnityEngine;
+using GameLovers.UiService;
+
+/// <summary>
+/// Custom feature that adds fade effect
+/// </summary>
+[RequireComponent(typeof(CanvasGroup))]
+public class FadeFeature : PresenterFeatureBase
+{
+    [SerializeField] private CanvasGroup _canvasGroup;
+    [SerializeField] private float _fadeDuration = 0.3f;
+    
+    private void OnValidate()
+    {
+        _canvasGroup = _canvasGroup ?? GetComponent<CanvasGroup>();
+    }
+    
+    public override void OnPresenterOpening()
+    {
+        _canvasGroup.alpha = 0f;
+    }
+    
+    public override void OnPresenterOpened()
+    {
+        StartCoroutine(FadeIn());
+    }
+    
+    private IEnumerator FadeIn()
+    {
+        float elapsed = 0f;
+        while (elapsed < _fadeDuration)
+        {
+            _canvasGroup.alpha = elapsed / _fadeDuration;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        _canvasGroup.alpha = 1f;
+    }
+}
+```
+
+**Available Lifecycle Hooks:**
+- `OnPresenterInitialized(UiPresenter presenter)` - Called once when presenter is initialized
+- `OnPresenterOpening()` - Called before UI is shown
+- `OnPresenterOpened()` - Called after UI is shown
+- `OnPresenterClosing()` - Called before UI is hidden
+- `OnPresenterClosed()` - Called after UI is hidden
+
+**Benefits of Feature Composition:**
+- ✅ **No Inheritance Conflicts** - Mix any features freely
+- ✅ **Self-Contained Logic** - Each feature owns its complete behavior
+- ✅ **Inspector Configuration** - All settings visible and editable
+- ✅ **Reusable** - Use the same feature across multiple presenters
+- ✅ **Scalable** - Add new features without modifying existing code
+
+---
 
 ### UI Layers
 
@@ -457,15 +639,98 @@ _uiService.CloseAllUiSet(setId: 2);
 _uiService.UnloadUiSet(setId: 2);
 ```
 
+### Multi-Instance Support
+
+The UI Service supports multiple instances of the same UI type using the `UiInstanceId` system. This allows you to have multiple instances of the same presenter active simultaneously, each with a unique instance address.
+
+#### Creating Multi-Instance UIs
+
+```csharp
+// Load multiple instances of the same UI type
+var chest1 = await _uiService.LoadUiAsync<ChestRewardPresenter>(
+    instanceAddress: "chest_1");
+var chest2 = await _uiService.LoadUiAsync<ChestRewardPresenter>(
+    instanceAddress: "chest_2");
+
+// Open with data
+await _uiService.OpenUiAsync<ChestRewardPresenter, ChestData>(
+    chestData1, instanceAddress: "chest_1");
+await _uiService.OpenUiAsync<ChestRewardPresenter, ChestData>(
+    chestData2, instanceAddress: "chest_2");
+```
+
+#### Working with Instances
+
+```csharp
+// Get specific instance
+var chest1 = _uiService.GetUi<ChestRewardPresenter>(instanceAddress: "chest_1");
+
+// Check if specific instance is visible
+bool isVisible = _uiService.IsVisible<ChestRewardPresenter>(
+    instanceAddress: "chest_1");
+
+// Close specific instance
+_uiService.CloseUi<ChestRewardPresenter>(
+    instanceAddress: "chest_1", destroy: false);
+
+// Unload specific instance
+_uiService.UnloadUi<ChestRewardPresenter>(instanceAddress: "chest_1");
+```
+
+#### Getting All Instances
+
+```csharp
+// Get all loaded presenters
+var allInstances = _uiService.GetLoadedPresenters();
+
+foreach (var instance in allInstances)
+{
+    Debug.Log($"Type: {instance.Type.Name}, Address: {instance.Address}");
+}
+
+// Filter by type
+var chestInstances = allInstances
+    .Where(i => i.Type == typeof(ChestRewardPresenter))
+    .ToList();
+```
+
+#### Default vs Named Instances
+
+```csharp
+// Default instance (singleton behavior)
+await _uiService.OpenUiAsync<MainMenuPresenter>();
+
+// Named instances (multi-instance)
+await _uiService.OpenUiAsync<DialogPresenter>(
+    instanceAddress: "confirm_purchase");
+await _uiService.OpenUiAsync<DialogPresenter>(
+    instanceAddress: "confirm_exit");
+```
+
+**Best Practices:**
+- Use default instances (no address) for singleton UIs (HUD, main menu, etc.)
+- Use named instances for UIs that can appear multiple times (dialogs, notifications, rewards)
+- Always specify instance address when working with multi-instance UIs to avoid ambiguity
+
+**Note:** If you call `GetUi<T>()` without specifying an instance address when multiple instances exist, a warning will be logged and the first found instance will be returned.
+
+---
+
 ### UI Configuration
 
 Configure your UI in the `UiConfigs` ScriptableObject:
 
 1. **Type** - The presenter class type
-2. **Prefab Reference** - Addressable reference to the UI prefab
-3. **Layer** - Which layer the UI belongs to
-4. **Load Synchronously** - Whether to load synchronously (use sparingly)
-5. **UI Set ID** - Optional grouping ID
+2. **Addressable Address** - Addressable reference key to the UI prefab
+3. **Layer** - Which layer the UI belongs to (higher = closer to camera)
+4. **Load Synchronously** - Whether to load synchronously (use sparingly for critical UIs)
+5. **UI Set ID** - Optional grouping ID for batch operations
+
+**Creating a UiConfigs Asset:**
+1. Right-click in Project View
+2. Navigate to `Create` → `ScriptableObjects` → `Configs` → `UiConfigs`
+3. Configure your UI presenters in the created asset
+4. Assign the asset to your UI service initialization
 
 ## API Documentation
 
@@ -480,14 +745,20 @@ var ui = await _uiService.LoadUiAsync<InventoryPresenter>();
 // Load and immediately open
 var ui = await _uiService.LoadUiAsync<InventoryPresenter>(openAfter: true);
 
+// Load with specific instance address (multi-instance)
+var ui = await _uiService.LoadUiAsync<NotificationPresenter>(
+    instanceAddress: "reward_notification", 
+    openAfter: false);
+
 // Check if loaded
-if (_uiService.LoadedPresenters.ContainsKey(typeof(InventoryPresenter)))
-{
-    // UI is loaded in memory
-}
+var loadedPresenters = _uiService.GetLoadedPresenters();
+bool isLoaded = loadedPresenters.Any(p => p.Type == typeof(InventoryPresenter));
 
 // Unload from memory
 _uiService.UnloadUi<InventoryPresenter>();
+
+// Unload specific instance
+_uiService.UnloadUi<NotificationPresenter>(instanceAddress: "reward_notification");
 ```
 
 #### Opening and Closing
@@ -999,10 +1270,33 @@ async void OnLevelComplete()
 }
 ```
 
+#### 5. Optimize Feature Usage
+
 **Animation Performance**:
-- Keep open/close animations under 0.5 seconds
-- Use `TimeDelayer` for simple fades (lighter than `AnimationDelayer`)
-- Disable `Animator` component when UI is closed
+```csharp
+// ✅ GOOD - Use TimeDelayFeature for simple fades (lighter)
+[RequireComponent(typeof(TimeDelayFeature))]
+public class SimpleFadePopup : UiPresenter
+{
+    [SerializeField] private TimeDelayFeature _delayFeature;
+    // Configure 0.3s delays in inspector
+}
+
+// ⚠️ HEAVIER - AnimationDelayFeature for complex animations
+[RequireComponent(typeof(AnimationDelayFeature))]
+public class ComplexAnimatedPopup : UiPresenter
+{
+    [SerializeField] private AnimationDelayFeature _animationFeature;
+    // Only use if you need complex animation sequences
+}
+```
+
+**Feature Best Practices**:
+- Keep open/close delays under 0.5 seconds for better user experience
+- Use `TimeDelayFeature` for simple timed delays (more performant)
+- Use `AnimationDelayFeature` only when synchronized with actual animations
+- Disable `Animation`/`Animator` components when UI is closed
+- Avoid adding unnecessary features - each feature adds minimal overhead but it adds up
 
 ## Troubleshooting
 
@@ -1052,31 +1346,47 @@ async void OnLevelComplete()
 
 #### Issue: Animations Not Playing
 
-**Symptoms**: `DelayUiPresenter` opens/closes instantly without animation
+**Symptoms**: UI with `AnimationDelayFeature` opens/closes instantly without animation
 
 **Possible Causes & Solutions**:
 
-1. **Delayers Not Configured**
+1. **Feature Not Added**
    ```csharp
-   public class AnimatedPopup : DelayUiPresenter
+   // ❌ MISSING - Feature component not attached
+   public class AnimatedPopup : UiPresenter
    {
-       // ❌ MISSING - ConfigureDelayers not called
-       
-       // ✅ CORRECT
-       protected override void ConfigureDelayers()
-       {
-           OpeningDelayer = new AnimationDelayer(_animator, "Open");
-           ClosingDelayer = new AnimationDelayer(_animator, "Close");
-       }
+       // Missing [RequireComponent(typeof(AnimationDelayFeature))]
+   }
+   
+   // ✅ CORRECT
+   [RequireComponent(typeof(AnimationDelayFeature))]
+   public class AnimatedPopup : UiPresenter
+   {
+       [SerializeField] private AnimationDelayFeature _animationFeature;
    }
    ```
 
-2. **Animation Clip Not Assigned**
+2. **Animation Clips Not Assigned**
    ```csharp
-   // Check if animator has the specified clip
-   // Ensure clip names match: "Open", "Close"
-   // Or use TimeDelayer if animations aren't ready:
-   OpeningDelayer = new TimeDelayer(0.5f);
+   // Check in Inspector:
+   // - Animation Component is assigned
+   // - Intro Animation Clip is assigned
+   // - Outro Animation Clip is assigned
+   
+   // Or use TimeDelayFeature instead:
+   [RequireComponent(typeof(TimeDelayFeature))]
+   public class SimpleDelayedPopup : UiPresenter
+   {
+       [SerializeField] private TimeDelayFeature _delayFeature;
+       // Configure delays in inspector
+   }
+   ```
+
+3. **Animation Component Missing**
+   ```csharp
+   // AnimationDelayFeature requires an Animation component
+   // Add Animation component to the GameObject
+   // Or use Animator with AnimationClips
    ```
 
 ---
@@ -1154,6 +1464,94 @@ async void OnLevelComplete()
 
 ---
 
+## Examples
+
+The package includes comprehensive examples demonstrating all features and patterns. Examples are located in the `Samples~` folder.
+
+### Importing Samples
+
+1. Open Unity Package Manager (`Window` → `Package Manager`)
+2. Select "UI Service" package
+3. Navigate to the "Samples" tab
+4. Click "Import" next to the sample you want
+
+### Available Samples
+
+#### 1. **BasicUiFlow**
+Demonstrates basic presenter lifecycle and simple button interactions.
+
+**What you'll learn:**
+- Creating basic UI presenters
+- Opening and closing UI
+- Handling button clicks
+- Lifecycle methods (`OnInitialized`, `OnOpened`, `OnClosed`)
+
+#### 2. **DataPresenter**
+Shows how to create data-driven UI with `UiPresenter<T>`.
+
+**What you'll learn:**
+- Using `UiPresenter<TData>` generic base class
+- Setting presenter data with `OnSetData()`
+- Passing data when opening UI
+- Data-driven UI updates
+
+#### 3. **DelayedPresenter**
+Examples of time-based and animation-based delays.
+
+**What you'll learn:**
+- Using `TimeDelayFeature` for timed delays
+- Using `AnimationDelayFeature` for animation synchronization
+- Subscribing to delay completion events
+- Configuring delays in the Inspector
+
+#### 4. **UiToolkit**
+UI Toolkit (UI Elements) integration example.
+
+**What you'll learn:**
+- Using `UiToolkitPresenterFeature`
+- Querying VisualElements
+- Binding UI Toolkit events
+- Working with UXML layouts
+
+#### 5. **DelayedUiToolkit**
+Advanced example combining multiple features.
+
+**What you'll learn:**
+- Composing multiple features together
+- Combining delays with UI Toolkit
+- Coordinating feature interactions
+- Using data with multiple features
+
+#### 6. **Analytics**
+Analytics integration and custom callbacks.
+
+**What you'll learn:**
+- Enabling analytics tracking
+- Implementing `IUiAnalyticsCallback`
+- Tracking UI events
+- Integrating with custom analytics backends
+
+### Sample Documentation
+
+Each sample folder includes:
+- **Source code** with detailed comments
+- **Example scenes** ready to run
+- **Prefabs** demonstrating proper setup
+- **UXML files** for UI Toolkit examples
+
+For detailed sample documentation, see `Samples~/README.md` after importing.
+
+### Running Samples
+
+1. Import the desired sample
+2. Open the example scene from `Samples/UiService/<SampleName>/`
+3. Enter Play Mode
+4. Interact with the UI to see features in action
+
+**Note:** All samples use the pure feature composition pattern introduced in v1.0.0.
+
+---
+
 ## Contributing
 
 We welcome contributions from the community! Here's how you can help:
@@ -1211,6 +1609,50 @@ We welcome contributions from the community! Here's how you can help:
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+---
+
+## Migration Guide
+
+### Upgrading from v0.x to v1.0.0
+
+**Breaking Changes:**
+
+1. **DelayUiPresenter Removed**
+   - **Old (v0.x):**
+     ```csharp
+     public class MyPresenter : DelayUiPresenter
+     {
+         protected override void ConfigureDelayers()
+         {
+             OpeningDelayer = new TimeDelayer(0.5f);
+         }
+     }
+     ```
+   - **New (v1.0.0):**
+     ```csharp
+     [RequireComponent(typeof(TimeDelayFeature))]
+     public class MyPresenter : UiPresenter
+     {
+         [SerializeField] private TimeDelayFeature _delayFeature;
+         // Configure delays in Inspector
+     }
+     ```
+
+2. **LoadedPresenters Property Changed to Method**
+   - **Old:** `var loaded = _uiService.LoadedPresenters;`
+   - **New:** `var loaded = _uiService.GetLoadedPresenters();`
+
+3. **Multi-Instance API Changes**
+   - All methods now accept optional `instanceAddress` parameter
+   - Use `GetLoadedPresenters()` instead of accessing dictionary directly
+
+**Non-Breaking Additions:**
+- Feature composition system is additive (existing presenters still work)
+- Analytics is opt-in (no changes needed if not using)
+- Multi-instance support is backwards compatible (default instances work as before)
+
+For detailed changes, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
