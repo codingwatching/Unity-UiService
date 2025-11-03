@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 // ReSharper disable CheckNamespace
 
@@ -8,65 +9,106 @@ namespace GameLovers.UiService
 	/// <summary>
 	/// Represents a configuration set of UIs that can be managed together in the <seealso cref="UiService"/>
 	/// This can be helpful for a UI combo set that are always visible together (ex: player Hud with currency & settings)
+	/// Supports multiple instances of the same UI type via UiInstanceId
 	/// </summary>
 	[Serializable]
 	public struct UiSetConfig
 	{
 		public int SetId;
-		public Type[] UiConfigsType;
+		public UiInstanceId[] UiInstanceIds;
 	}
 
 	/// <summary>
-	/// Necessary to serialize the data in scriptable object
+	/// Serializable entry for a UI instance in a set.
+	/// Stores Type as string and optional instance address.
+	/// This is more robust than storing addressable addresses which can change.
+	/// </summary>
+	[Serializable]
+	public struct UiSetEntry
+	{
+		/// <summary>
+		/// The AssemblyQualifiedName of the UI presenter type
+		/// </summary>
+		public string UiTypeName;
+		
+		/// <summary>
+		/// Optional instance address for multi-instance support. Empty string means default instance.
+		/// </summary>
+		public string InstanceAddress;
+		
+		public UiInstanceId ToUiInstanceId()
+		{
+			var type = Type.GetType(UiTypeName);
+			if (type == null)
+			{
+				Debug.LogWarning($"Could not find type: {UiTypeName}");
+				return default;
+			}
+			return new UiInstanceId(type, string.IsNullOrEmpty(InstanceAddress) ? null : InstanceAddress);
+		}
+		
+		public static UiSetEntry FromUiInstanceId(UiInstanceId instanceId)
+		{
+			return new UiSetEntry
+			{
+				UiTypeName = instanceId.PresenterType.AssemblyQualifiedName,
+				InstanceAddress = instanceId.InstanceAddress ?? string.Empty
+			};
+		}
+	}
+
+	/// <summary>
+	/// Necessary to serialize the data in scriptable object.
+	/// Now stores Type names instead of addressable addresses for robustness.
 	/// </summary>
 	[Serializable]
 	public struct UiSetConfigSerializable
 	{
 		public int SetId;
-		public List<string> UiConfigsAddress;
+		public List<UiSetEntry> UiEntries;
 
-		public static UiSetConfig ToUiSetConfig(UiSetConfigSerializable serializable, List<UiConfigs.UiConfigSerializable> configs)
+		public static UiSetConfig ToUiSetConfig(UiSetConfigSerializable serializable)
 		{
-			var types = new Type[serializable.UiConfigsAddress.Count];
-			var index = 0;
+			var instanceIds = new List<UiInstanceId>();
 			
-			foreach (var address in serializable.UiConfigsAddress)
+			if (serializable.UiEntries != null)
 			{
-				var config = configs.Find(c => c.AddressableAddress == address);
-				if (!string.IsNullOrEmpty(config.UiType))
+				foreach (var entry in serializable.UiEntries)
 				{
-					types[index++] = Type.GetType(config.UiType);
+					var instanceId = entry.ToUiInstanceId();
+					if (instanceId.PresenterType != null)
+					{
+						instanceIds.Add(instanceId);
+					}
 				}
-			}
-			
-			// Trim array if some addresses weren't found
-			if (index < types.Length)
-			{
-				Array.Resize(ref types, index);
 			}
 			
 			return new UiSetConfig 
 			{ 
 				SetId = serializable.SetId, 
-				UiConfigsType = types 
+				UiInstanceIds = instanceIds.ToArray()
 			};
 		}
 
-		public static UiSetConfigSerializable FromUiSetConfig(UiSetConfig config, List<UiConfigs.UiConfigSerializable> configs)
+		public static UiSetConfigSerializable FromUiSetConfig(UiSetConfig config)
 		{
-			var addresses = new List<string>();
-			foreach (var type in config.UiConfigsType)
+			var entries = new List<UiSetEntry>();
+			
+			if (config.UiInstanceIds != null)
 			{
-				var uiConfig = configs.Find(c => c.UiType == type.AssemblyQualifiedName);
-				if (!string.IsNullOrEmpty(uiConfig.AddressableAddress))
+				foreach (var instanceId in config.UiInstanceIds)
 				{
-					addresses.Add(uiConfig.AddressableAddress);
+					if (instanceId.PresenterType != null)
+					{
+						entries.Add(UiSetEntry.FromUiInstanceId(instanceId));
+					}
 				}
 			}
+			
 			return new UiSetConfigSerializable 
 			{ 
 				SetId = config.SetId, 
-				UiConfigsAddress = addresses 
+				UiEntries = entries 
 			};
 		}
 	}

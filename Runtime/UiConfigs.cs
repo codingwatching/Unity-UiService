@@ -43,16 +43,17 @@ namespace GameLovers.UiService
 		/// <summary>
 		/// Gets the list of UI set configurations
 		/// </summary>
-		public List<UiSetConfig> Sets => _sets.ConvertAll(element => UiSetConfigSerializable.ToUiSetConfig(element, _configs));
+		public List<UiSetConfig> Sets => _sets.ConvertAll(element => UiSetConfigSerializable.ToUiSetConfig(element));
 
 		/// <summary>
 		/// Sets the new size of this scriptable object <seealso cref="UiSetConfig"/> list.
-		/// The UiConfigSets have the same id value that the index in the list
+		/// The UiConfigSets have the same id value that the index in the list.
+		/// Validates entries against available UI configs.
 		/// </summary>
 		/// <param name="size">The new size of the list</param>
 		public void SetSetsSize(int size)
 		{
-			var validAddresses = new HashSet<string>(_configs.Select(c => c.AddressableAddress));
+			var validTypeNames = new HashSet<string>(_configs.Select(c => c.UiType));
 			
 			if (size < _sets.Count)
 			{
@@ -64,12 +65,20 @@ namespace GameLovers.UiService
 				if (i < _sets.Count)
 				{
 					var set = _sets[i];
-					set.UiConfigsAddress.RemoveAll(address => !validAddresses.Contains(address));
+					
+					// Initialize UiEntries if null
+					if (set.UiEntries == null)
+					{
+						set.UiEntries = new List<UiSetEntry>();
+					}
+					
+					// Remove entries that reference non-existent UI types
+					set.UiEntries.RemoveAll(entry => !validTypeNames.Contains(entry.UiTypeName));
 					_sets[i] = set;
 					continue;
 				}
 
-				_sets.Add(new UiSetConfigSerializable { SetId = i, UiConfigsAddress = new List<string>() });
+				_sets.Add(new UiSetConfigSerializable { SetId = i, UiEntries = new List<UiSetEntry>() });
 			}
 		}
 

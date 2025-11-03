@@ -10,24 +10,22 @@ namespace GameLovers.UiService
 {
 	/// <summary>
 	/// This service provides an abstraction layer to interact with the game's UI <seealso cref="UiPresenter"/>
-	/// The Ui Service is organized by layers. The higher the layer the more close is to the camera viewport
+	/// The Ui Service is organized by layers. The higher the layer the more close is to the camera viewport.
+	/// Supports multiple instances of the same UI type through the UiInstanceId system.
 	/// </summary>
 	public interface IUiService
 	{
 		/// <summary>
-		/// Gets a read-only dictionary of the Presenters currently Loaded in memory by the UI service.
+		/// Gets a read-only dictionary of all Presenters currently loaded in memory by the UI service.
+		/// Keys are UiInstanceId which contain both the Type and optional instance name.
 		/// </summary>
-		IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters { get; }
+		IReadOnlyDictionary<UiInstanceId, UiPresenter> LoadedPresenters { get; }
 		
 		/// <summary>
-		/// Gets a read-only list of the Presenters currently currently visible and were opened by the UI service.
+		/// Gets a read-only list of all Presenter instances currently visible.
+		/// Each entry is a UiInstanceId containing the Type and instance name.
 		/// </summary>
-		IReadOnlyList<Type> VisiblePresenters { get; }
-
-		/// <summary>
-		/// Gets a read-only dictionary of the layers used by the UI service.
-		/// </summary>
-		IReadOnlyDictionary<int, GameObject> Layers { get; }
+		IReadOnlyList<UiInstanceId> VisiblePresenters { get; }
 
 		/// <summary>
 		/// Gets a read-only dictionary of the containers of UI, called 'Ui Set' maintained by the UI service.

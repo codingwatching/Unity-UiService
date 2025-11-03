@@ -27,30 +27,25 @@ namespace GameLovers.UiService
 		private readonly IUiAssetLoader _assetLoader;
 		private readonly IUiAnalytics _analytics;
 		private readonly IDictionary<Type, UiConfig> _uiConfigs = new Dictionary<Type, UiConfig>();
-		private readonly IList<Type> _visibleUiList = new List<Type>();
+		private readonly IList<UiInstanceId> _visibleUiList = new List<UiInstanceId>();
 		private readonly IDictionary<int, UiSetConfig> _uiSets = new Dictionary<int, UiSetConfig>();
-		private readonly IDictionary<int, GameObject> _layers = new Dictionary<int, GameObject>();
-		private readonly IDictionary<Type, UiPresenter> _uiPresenters = new Dictionary<Type, UiPresenter>();
+		private readonly IDictionary<UiInstanceId, UiPresenter> _uiPresenters = new Dictionary<UiInstanceId, UiPresenter>();
 
-		private readonly IReadOnlyDictionary<Type, UiPresenter> _loadedPresentersReadOnly;
-		private readonly IReadOnlyDictionary<int, GameObject> _layersReadOnly;
+		private readonly IReadOnlyDictionary<UiInstanceId, UiPresenter> _loadedPresentersReadOnly;
 		private readonly IReadOnlyDictionary<int, UiSetConfig> _uiSetsReadOnly;
-		private readonly IReadOnlyList<Type> _visiblePresentersReadOnly;
+		private readonly IReadOnlyList<UiInstanceId> _visiblePresentersReadOnly;
 
 		private Transform _uiParent;
 		private bool _disposed;
 
 		/// <inheritdoc />
-		public IReadOnlyDictionary<Type, UiPresenter> LoadedPresenters => _loadedPresentersReadOnly;
-
-		/// <inheritdoc />
-		public IReadOnlyDictionary<int, GameObject> Layers => _layersReadOnly;
+		public IReadOnlyDictionary<UiInstanceId, UiPresenter> LoadedPresenters => _loadedPresentersReadOnly;
 
 		/// <inheritdoc />
 		public IReadOnlyDictionary<int, UiSetConfig> UiSets => _uiSetsReadOnly;
 
 		/// <inheritdoc />
-		public IReadOnlyList<Type> VisiblePresenters => _visiblePresentersReadOnly;
+		public IReadOnlyList<UiInstanceId> VisiblePresenters => _visiblePresentersReadOnly;
 
 		/// <summary>
 		/// Gets the analytics instance being used by this service
@@ -70,10 +65,9 @@ namespace GameLovers.UiService
 			CurrentAnalytics = _analytics;
 			
 			// Initialize readonly wrappers to avoid allocations on property access
-			_loadedPresentersReadOnly = new ReadOnlyDictionary<Type, UiPresenter>(_uiPresenters);
-			_layersReadOnly = new ReadOnlyDictionary<int, GameObject>(_layers);
+			_loadedPresentersReadOnly = new ReadOnlyDictionary<UiInstanceId, UiPresenter>(_uiPresenters);
 			_uiSetsReadOnly = new ReadOnlyDictionary<int, UiSetConfig>(_uiSets);
-			_visiblePresentersReadOnly = new ReadOnlyCollection<Type>(_visibleUiList);
+			_visiblePresentersReadOnly = new ReadOnlyCollection<UiInstanceId>(_visibleUiList);
 		}
 
 		/// <inheritdoc />
@@ -124,13 +118,40 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public T GetUi<T>() where T : UiPresenter
 		{
-			return _uiPresenters[typeof(T)] as T;
+			return GetUi<T>(string.Empty);
+		}
+		
+		/// <summary>
+		/// Requests the UI of given type <typeparamref name="T"/> with the specified instance address
+		/// </summary>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		/// <exception cref="KeyNotFoundException">
+		/// Thrown if the service does NOT contain an <see cref="UiPresenter"/> of the given type and instance address
+		/// </exception>
+		public T GetUi<T>(string instanceAddress) where T : UiPresenter
+		{
+			var instanceId = new UiInstanceId(typeof(T), instanceAddress);
+			if (!_uiPresenters.TryGetValue(instanceId, out var presenter))
+			{
+				throw new KeyNotFoundException($"UI presenter of type {typeof(T).Name} with instance '{instanceAddress ?? "default"}' not found.");
+			}
+			return presenter as T;
 		}
 
 		/// <inheritdoc />
 		public bool IsVisible<T>() where T : UiPresenter
 		{
-			return _visibleUiList.Contains(typeof(T));
+			return IsVisible<T>(string.Empty);
+		}
+		
+		/// <summary>
+		/// Requests the visible state of the given UI type <typeparamref name="T"/> with the specified instance address
+		/// </summary>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		public bool IsVisible<T>(string instanceAddress) where T : UiPresenter
+		{
+			var instanceId = new UiInstanceId(typeof(T), instanceAddress);
+			return _visibleUiList.Contains(instanceId);
 		}
 
 		/// <inheritdoc />
@@ -154,28 +175,56 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void AddUi<T>(T ui, int layer, bool openAfter = false) where T : UiPresenter
 		{
+			AddUi(ui, layer, string.Empty, openAfter);
+		}
+		
+		/// <summary>
+		/// Adds a UI presenter to the service with an optional instance address
+		/// </summary>
+		/// <param name="ui">The UI presenter to add</param>
+		/// <param name="layer">The layer to include the UI presenter in</param>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		/// <param name="openAfter">Whether to open the UI presenter after adding it</param>
+		public void AddUi<T>(T ui, int layer, string instanceAddress, bool openAfter = false) where T : UiPresenter
+		{
 			var type = ui.GetType().UnderlyingSystemType;
+			var instanceId = new UiInstanceId(type, instanceAddress);
 
-			if (!_uiPresenters.TryAdd(type, ui))
+			if (!_uiPresenters.TryAdd(instanceId, ui))
 			{
-				Debug.LogWarning($"The Ui {type} was already added");
+				Debug.LogWarning($"The Ui {instanceId} was already added");
 				return;
 			}
+			
+			// Ensure Canvas sorting order matches layer
+			EnsureCanvasSortingOrder(ui.gameObject, layer);
 
 			ui.Init(this);
 
 			if (openAfter)
 			{
-				OpenUi(type);
+				OpenUi(instanceId);
 			}
 		}
 
 		/// <inheritdoc />
 		public bool RemoveUi(Type type)
 		{
-			_visibleUiList.Remove(type);
+			return RemoveUi(type, string.Empty);
+		}
+		
+		/// <summary>
+		/// Removes the UI of the specified type and instance address from the service without unloading it
+		/// </summary>
+		/// <param name="type">The type of UI to remove</param>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		/// <returns>True if the UI was removed, false otherwise</returns>
+		public bool RemoveUi(Type type, string instanceAddress)
+		{
+			var instanceId = new UiInstanceId(type, instanceAddress);
+			_visibleUiList.Remove(instanceId);
 			
-			return _uiPresenters.Remove(type);
+			return _uiPresenters.Remove(instanceId);
 		}
 
 		/// <inheritdoc />
@@ -188,14 +237,14 @@ namespace GameLovers.UiService
 			
 			var list = new List<UiPresenter>();
 
-			foreach (var type in set.UiConfigsType)
+			foreach (var instanceId in set.UiInstanceIds)
 			{
-				if (!_uiPresenters.TryGetValue(type, out var ui))
+				if (!_uiPresenters.TryGetValue(instanceId, out var ui))
 				{
 					continue;
 				}
 
-				RemoveUi(type);
+				RemoveUi(instanceId.PresenterType, instanceId.InstanceAddress);
 
 				list.Add(ui);
 			}
@@ -206,14 +255,29 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public async UniTask<UiPresenter> LoadUiAsync(Type type, bool openAfter = false, CancellationToken cancellationToken = default)
 		{
+			return await LoadUiAsync(type, string.Empty, openAfter, cancellationToken);
+		}
+		
+		/// <summary>
+		/// Loads the UI of the specified type asynchronously with an optional instance address
+		/// </summary>
+		/// <param name="type">The type of UI to load</param>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		/// <param name="openAfter">Whether to open the UI after loading</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation</param>
+		/// <returns>A task that completes with the loaded UI</returns>
+		public async UniTask<UiPresenter> LoadUiAsync(Type type, string instanceAddress, bool openAfter = false, CancellationToken cancellationToken = default)
+		{
 			if (!_uiConfigs.TryGetValue(type, out var config))
 			{
 				throw new KeyNotFoundException($"The UiConfig of type {type} was not added to the service. Call {nameof(AddUiConfig)} first");
 			}
 
-			if (_uiPresenters.TryGetValue(type, out var ui))
+			var instanceId = new UiInstanceId(type, instanceAddress);
+			
+			if (_uiPresenters.TryGetValue(instanceId, out var ui))
 			{
-				Debug.LogWarning($"The Ui {type} was already loaded");
+				Debug.LogWarning($"The Ui {instanceId} was already loaded");
 				ui.gameObject.SetActive(openAfter);
 
 				return ui;
@@ -221,11 +285,11 @@ namespace GameLovers.UiService
 
 			_analytics.TrackLoadStart(type);
 
-			var layer = AddLayer(config.Layer);
-			var gameObject = await _assetLoader.InstantiatePrefab(config, layer.transform, cancellationToken);
+			// Parent directly to _uiParent - no layer GameObjects needed
+			var gameObject = await _assetLoader.InstantiatePrefab(config, _uiParent, cancellationToken);
 
 			// Double check if the same UiPresenter was already loaded. This can happen if the coder spam calls LoadUiAsync
-			if (_uiPresenters.TryGetValue(type, out var uiDouble))
+			if (_uiPresenters.TryGetValue(instanceId, out var uiDouble))
 			{
 				_assetLoader.UnloadAsset(gameObject);
 				uiDouble.gameObject.SetActive(openAfter);
@@ -236,7 +300,7 @@ namespace GameLovers.UiService
 			var uiPresenter = gameObject.GetComponent<UiPresenter>();
 
 			gameObject.SetActive(false);
-			AddUi(uiPresenter, config.Layer, openAfter);
+			AddUi(uiPresenter, config.Layer, instanceAddress, openAfter);
 			
 			_analytics.TrackLoadComplete(type, config.Layer);
 
@@ -250,14 +314,14 @@ namespace GameLovers.UiService
 
 			if (_uiSets.TryGetValue(setId, out var set))
 			{
-				foreach (var type in set.UiConfigsType)
+				foreach (var instanceId in set.UiInstanceIds)
 				{
-					if (_uiPresenters.ContainsKey(type))
+					if (_uiPresenters.ContainsKey(instanceId))
 					{
 						continue;
 					}
 
-					uiTasks.Add(LoadUiAsync(type));
+					uiTasks.Add(LoadUiAsync(instanceId.PresenterType, instanceId.InstanceAddress));
 				}
 			}
 
@@ -267,14 +331,26 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void UnloadUi(Type type)
 		{
-			if (!_uiPresenters.TryGetValue(type, out var ui))
+			UnloadUi(type, string.Empty);
+		}
+		
+		/// <summary>
+		/// Unloads the UI of the specified type and instance address
+		/// </summary>
+		/// <param name="type">The type of UI to unload</param>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		public void UnloadUi(Type type, string instanceAddress)
+		{
+			var instanceId = new UiInstanceId(type, instanceAddress);
+			
+			if (!_uiPresenters.TryGetValue(instanceId, out var ui))
 			{
-				throw new KeyNotFoundException($"Cannot unload UI of type {type}. It is not loaded.");
+				throw new KeyNotFoundException($"Cannot unload UI {instanceId}. It is not loaded.");
 			}
 			
 			var config = _uiConfigs[type];
 			
-			RemoveUi(type);
+			RemoveUi(type, instanceAddress);
 
 			_assetLoader.UnloadAsset(ui.gameObject);
 			
@@ -286,11 +362,11 @@ namespace GameLovers.UiService
 		{
 			var set = _uiSets[setId];
 
-			foreach (var type in set.UiConfigsType)
+			foreach (var instanceId in set.UiInstanceIds)
 			{
-				if (_uiPresenters.ContainsKey(type))
+				if (_uiPresenters.ContainsKey(instanceId))
 				{
-					UnloadUi(type);
+					UnloadUi(instanceId.PresenterType, instanceId.InstanceAddress);
 				}
 			}
 		}
@@ -298,9 +374,20 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public async UniTask<UiPresenter> OpenUiAsync(Type type, CancellationToken cancellationToken = default)
 		{
-			var ui = await GetOrLoadUiAsync(type, cancellationToken);
+			return await OpenUiAsync(type, string.Empty, cancellationToken);
+		}
+		
+		/// <summary>
+		/// Opens a UI presenter asynchronously with an optional instance address
+		/// </summary>
+		/// <param name="type">The type of UI presenter to open</param>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation</param>
+		public async UniTask<UiPresenter> OpenUiAsync(Type type, string instanceAddress, CancellationToken cancellationToken = default)
+		{
+			var ui = await GetOrLoadUiAsync(type, instanceAddress, cancellationToken);
 
-			OpenUi(type);
+			OpenUi(new UiInstanceId(type, instanceAddress));
 
 			return ui;
 		}
@@ -308,7 +395,19 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public async UniTask<UiPresenter> OpenUiAsync<TData>(Type type, TData initialData, CancellationToken cancellationToken = default) where TData : struct
 		{
-			var ui = await GetOrLoadUiAsync(type, cancellationToken);
+			return await OpenUiAsync(type, string.Empty, initialData, cancellationToken);
+		}
+		
+		/// <summary>
+		/// Opens a UI presenter asynchronously with initial data and an optional instance address
+		/// </summary>
+		/// <param name="type">The type of UI presenter to open</param>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		/// <param name="initialData">The initial data to set</param>
+		/// <param name="cancellationToken">Cancellation token to cancel the operation</param>
+		public async UniTask<UiPresenter> OpenUiAsync<TData>(Type type, string instanceAddress, TData initialData, CancellationToken cancellationToken = default) where TData : struct
+		{
+			var ui = await GetOrLoadUiAsync(type, instanceAddress, cancellationToken);
 
 			if (ui is UiPresenter<TData> uiPresenter)
 			{
@@ -321,7 +420,7 @@ namespace GameLovers.UiService
 				return ui;
 			}
 			
-			OpenUi(type);
+			OpenUi(new UiInstanceId(type, instanceAddress));
 
 			return ui;
 		}
@@ -329,16 +428,29 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void CloseUi(Type type, bool destroy = false)
 		{
-			if (!_visibleUiList.Contains(type))
+			CloseUi(type, string.Empty, destroy);
+		}
+		
+		/// <summary>
+		/// Closes a UI presenter with an optional instance address and optionally destroys its assets
+		/// </summary>
+		/// <param name="type">The type of UI presenter to close</param>
+		/// <param name="instanceAddress">Optional instance address. Use null for default/singleton instance.</param>
+		/// <param name="destroy">Whether to destroy the UI presenter's assets</param>
+		public void CloseUi(Type type, string instanceAddress, bool destroy = false)
+		{
+			var instanceId = new UiInstanceId(type, instanceAddress);
+			
+			if (!_visibleUiList.Contains(instanceId))
 			{
-				Debug.LogWarning($"Is trying to close the {type.Name} ui but is not open");
+				Debug.LogWarning($"Is trying to close the {instanceId} ui but is not open");
 				return;
 			}
 
 			_analytics.TrackCloseStart(type);
 			
-			_visibleUiList.Remove(type);
-			_uiPresenters[type].InternalClose(destroy);
+			_visibleUiList.Remove(instanceId);
+			_uiPresenters[instanceId].InternalClose(destroy);
 			
 			var config = _uiConfigs[type];
 			_analytics.TrackCloseComplete(type, config.Layer, destroy);
@@ -347,9 +459,9 @@ namespace GameLovers.UiService
 		/// <inheritdoc />
 		public void CloseAllUi()
 		{
-			foreach (var type in _visibleUiList)
+			foreach (var instanceId in _visibleUiList)
 			{
-				_uiPresenters[type].InternalClose(false);
+				_uiPresenters[instanceId].InternalClose(false);
 			}
 
 			_visibleUiList.Clear();
@@ -360,12 +472,12 @@ namespace GameLovers.UiService
 		{
 			for (int i = _visibleUiList.Count - 1; i >= 0; i--)
 			{
-				var type = _visibleUiList[i];
+				var instanceId = _visibleUiList[i];
 
-				if (_uiConfigs[type].Layer == layer)
+				if (_uiConfigs[instanceId.PresenterType].Layer == layer)
 				{
-					_uiPresenters[type].InternalClose(false);
-					_visibleUiList.Remove(type);
+					_uiPresenters[instanceId].InternalClose(false);
+					_visibleUiList.Remove(instanceId);
 				}
 			}
 		}
@@ -375,48 +487,51 @@ namespace GameLovers.UiService
 		{
 			var set = _uiSets[setId];
 
-			foreach (var type in set.UiConfigsType)
+			foreach (var instanceId in set.UiInstanceIds)
 			{
-				CloseUi(type);
+				CloseUi(instanceId.PresenterType, instanceId.InstanceAddress);
 			}
 		}
 
-		private GameObject AddLayer(int layer)
+		/// <summary>
+		/// Ensures the GameObject has proper Canvas sorting order set
+		/// </summary>
+		private void EnsureCanvasSortingOrder(GameObject gameObject, int layer)
 		{
-			if (_layers.ContainsKey(layer)) return _layers[layer];
-
-			var newObj = new GameObject($"Layer {layer.ToString()}");
-
-			newObj.transform.position = Vector3.zero;
-
-			newObj.transform.SetParent(_uiParent);
-			_layers.Add(layer, newObj);
-
-			return _layers[layer];
+			if (gameObject.TryGetComponent<Canvas>(out var canvas))
+			{
+				canvas.sortingOrder = layer;
+			}
+			else if (gameObject.TryGetComponent<UnityEngine.UIElements.UIDocument>(out var document))
+			{
+				document.sortingOrder = layer;
+			}
 		}
 
-		private void OpenUi(Type type)
+		private void OpenUi(UiInstanceId instanceId)
 		{
-			if (_visibleUiList.Contains(type))
+			if (_visibleUiList.Contains(instanceId))
 			{
-				Debug.LogWarning($"Is trying to open the {type.Name} ui but is already open");
+				Debug.LogWarning($"Is trying to open the {instanceId} ui but is already open");
 				return;
 			}
 
-			_analytics.TrackOpenStart(type);
+			_analytics.TrackOpenStart(instanceId.PresenterType);
 			
-			_uiPresenters[type].InternalOpen();
-			_visibleUiList.Add(type);
+			_uiPresenters[instanceId].InternalOpen();
+			_visibleUiList.Add(instanceId);
 			
-			var config = _uiConfigs[type];
-			_analytics.TrackOpenComplete(type, config.Layer);
+			var config = _uiConfigs[instanceId.PresenterType];
+			_analytics.TrackOpenComplete(instanceId.PresenterType, config.Layer);
 		}
 
-		private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type, CancellationToken cancellationToken = default)
+		private async UniTask<UiPresenter> GetOrLoadUiAsync(Type type, string instanceAddress, CancellationToken cancellationToken = default)
 		{
-			if (!_uiPresenters.TryGetValue(type, out var ui))
+			var instanceId = new UiInstanceId(type, instanceAddress);
+			
+			if (!_uiPresenters.TryGetValue(instanceId, out var ui))
 			{
-				ui = await LoadUiAsync(type, false, cancellationToken);
+				ui = await LoadUiAsync(type, instanceAddress, false, cancellationToken);
 			}
 
 			return ui;
@@ -444,16 +559,16 @@ namespace GameLovers.UiService
 			CloseAllUi();
 
 			// Unload all UI presenters
-			var presenterTypes = new List<Type>(_uiPresenters.Keys);
-			foreach (var type in presenterTypes)
+			var presenterInstances = new List<UiInstanceId>(_uiPresenters.Keys);
+			foreach (var instanceId in presenterInstances)
 			{
 				try
 				{
-					UnloadUi(type);
+					UnloadUi(instanceId.PresenterType, instanceId.InstanceAddress);
 				}
 				catch (Exception ex)
 				{
-					Debug.LogWarning($"Failed to unload UI of type {type.Name} during disposal: {ex.Message}");
+					Debug.LogWarning($"Failed to unload UI {instanceId} during disposal: {ex.Message}");
 				}
 			}
 
@@ -462,7 +577,6 @@ namespace GameLovers.UiService
 			_visibleUiList.Clear();
 			_uiConfigs.Clear();
 			_uiSets.Clear();
-			_layers.Clear();
 
 			// Clean up static events
 			// Note: We don't call RemoveAllListeners on static UnityEvents as it would affect other instances

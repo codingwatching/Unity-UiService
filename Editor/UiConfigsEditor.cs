@@ -61,12 +61,14 @@ namespace GameLoversEditor.UiService
 
 		private const string UiSetExplanation =
 			"UI Set Configurations\n\n" +
-			"UI Sets group multiple presenters that should be displayed together. " +
+			"UI Sets group multiple presenter instances that should be displayed together. " +
 			"When a set is activated via UiService, all its presenters are loaded and shown simultaneously. " +
-			"Presenters are loaded in the order listed (top to bottom).";
+			"Presenters are loaded in the order listed (top to bottom).\n\n" +
+			"You can add the same UI type multiple times with different instance addresses for multi-instance support.";
 
 		private Dictionary<string, string> _assetPathLookup;
 		private List<string> _uiConfigsAddress;
+		private Dictionary<string, Type> _uiTypesByAddress; // Maps addressable address to Type
 		private UiConfigs _scriptableObject;
 		private SerializedProperty _configsProperty;
 		private SerializedProperty _setsProperty;
@@ -214,12 +216,14 @@ namespace GameLoversEditor.UiService
 			container.style.paddingTop = 2;
 			container.style.paddingBottom = 2;
 
+			// UiPresenter Addressable Address
 			var label = new Label();
 			label.style.flexGrow = 1;
 			label.style.paddingLeft = 5;
 			label.style.unityTextAlign = TextAnchor.MiddleLeft;
 			container.Add(label);
 
+			// Layer field
 			var layerField = new IntegerField();
 			layerField.style.width = 80;
 			layerField.style.marginRight = 5;
@@ -245,13 +249,22 @@ namespace GameLoversEditor.UiService
 			dragHandle.tooltip = "Drag to reorder";
 			container.Add(dragHandle);
 			
-			// Dropdown for selecting UI presenter
+			// Dropdown for selecting UI presenter type
 			var dropdown = new DropdownField();
 			dropdown.choices = new List<string>(_uiConfigsAddress ?? new List<string>());
 			dropdown.style.flexGrow = 1;
 			dropdown.style.paddingTop = 3;
 			dropdown.style.paddingBottom = 3;
+			dropdown.name = "ui-type-dropdown";
 			container.Add(dropdown);
+			
+			// Instance address field (optional)
+			var instanceField = new TextField();
+			instanceField.style.width = 120;
+			instanceField.style.marginLeft = 5;
+			instanceField.tooltip = "Optional instance address (leave empty for default instance)";
+			instanceField.name = "instance-address-field";
+			container.Add(instanceField);
 			
 			// Delete button
 			var deleteButton = new Button { text = "×" };
@@ -286,9 +299,9 @@ namespace GameLoversEditor.UiService
 			header.style.marginBottom = 5;
 			setContainer.Add(header);
 
-			// Get the property for this set's UI configs
+			// Get the property for this set's UI entries
 			var setProperty = _setsProperty.GetArrayElementAtIndex(setIndex);
-			var uiConfigsAddressProperty = setProperty.FindPropertyRelative(nameof(UiSetConfigSerializable.UiConfigsAddress));
+			var uiEntriesProperty = setProperty.FindPropertyRelative(nameof(UiSetConfigSerializable.UiEntries));
 
 			// ListView for presenters in this set
 			var presenterListView = new ListView
@@ -301,13 +314,13 @@ namespace GameLoversEditor.UiService
 				fixedItemHeight = 28
 			};
 
-			presenterListView.BindProperty(uiConfigsAddressProperty);
+			presenterListView.BindProperty(uiEntriesProperty);
 
 			presenterListView.makeItem = CreateSetPresenterElement;
-			presenterListView.bindItem = (element, index) => BindSetPresenterElement(element, index, uiConfigsAddressProperty, presenterListView);
+			presenterListView.bindItem = (element, index) => BindSetPresenterElement(element, index, uiEntriesProperty, presenterListView);
 			
 			// Register callbacks to save changes when items are added, removed, or reordered
-			presenterListView.itemsAdded += indices => OnPresenterItemsAdded(indices, uiConfigsAddressProperty);
+			presenterListView.itemsAdded += indices => OnPresenterItemsAdded(indices, uiEntriesProperty);
 			presenterListView.itemsRemoved += _ => SaveSetChanges();
 			presenterListView.itemIndexChanged += (_, _) => SaveSetChanges();
 
@@ -316,21 +329,40 @@ namespace GameLoversEditor.UiService
 			return setContainer;
 		}
 
-		private void BindSetPresenterElement(VisualElement element, int index, SerializedProperty uiConfigsAddressProperty, ListView listView)
+		private void BindSetPresenterElement(VisualElement element, int index, SerializedProperty uiEntriesProperty, ListView listView)
 		{
-			if (index >= uiConfigsAddressProperty.arraySize)
+			if (index >= uiEntriesProperty.arraySize)
 				return;
 
-			var dropdown = element.Q<DropdownField>();
-			if (dropdown == null)
+			var dropdown = element.Q<DropdownField>("ui-type-dropdown");
+			var instanceField = element.Q<TextField>("instance-address-field");
+			if (dropdown == null || instanceField == null)
 				return;
 
-			var itemProperty = uiConfigsAddressProperty.GetArrayElementAtIndex(index);
+			var entryProperty = uiEntriesProperty.GetArrayElementAtIndex(index);
+			var typeNameProperty = entryProperty.FindPropertyRelative(nameof(UiSetEntry.UiTypeName));
+			var instanceAddressProperty = entryProperty.FindPropertyRelative(nameof(UiSetEntry.InstanceAddress));
 			
-			// Find the index in our address list
-			var currentAddress = itemProperty.stringValue;
-			var selectedIndex = string.IsNullOrEmpty(currentAddress) ? 0 : 
-				_uiConfigsAddress.FindIndex(address => address == currentAddress);
+			// Find the matching address for this type
+			var currentTypeName = typeNameProperty.stringValue;
+			Type currentType = string.IsNullOrEmpty(currentTypeName) ? null : Type.GetType(currentTypeName);
+			
+			// Find the address that matches this type
+			string matchingAddress = null;
+			if (currentType != null && _uiTypesByAddress != null)
+			{
+				foreach (var kvp in _uiTypesByAddress)
+				{
+					if (kvp.Value == currentType)
+					{
+						matchingAddress = kvp.Key;
+						break;
+					}
+				}
+			}
+			
+			var selectedIndex = string.IsNullOrEmpty(matchingAddress) ? 0 : 
+				_uiConfigsAddress.FindIndex(address => address == matchingAddress);
 			
 			if (selectedIndex < 0) 
 				selectedIndex = 0;
@@ -339,45 +371,87 @@ namespace GameLoversEditor.UiService
 			{
 				// Unbind to prevent stale property references
 				dropdown.Unbind();
+				instanceField.Unbind();
 				
-				// Set the current value
+				// Set the current values
 				dropdown.index = selectedIndex;
+				instanceField.value = instanceAddressProperty.stringValue ?? string.Empty;
 				
-				// Register callback to store address when changed
+				// Register callback to store type when changed
 				dropdown.RegisterValueChangedCallback(evt =>
 				{
 					var newIndex = dropdown.index;
 					if (newIndex >= 0 && newIndex < _uiConfigsAddress.Count)
 					{
-						itemProperty.stringValue = _uiConfigsAddress[newIndex];
-						SaveSetChanges();
+						var selectedAddress = _uiConfigsAddress[newIndex];
+						if (_uiTypesByAddress.TryGetValue(selectedAddress, out var selectedType))
+						{
+							typeNameProperty.stringValue = selectedType.AssemblyQualifiedName;
+							SaveSetChanges();
+						}
 					}
 				});
 				
-				// Set initial value if property is empty
-				if (string.IsNullOrEmpty(itemProperty.stringValue) && selectedIndex < _uiConfigsAddress.Count)
+				// Register callback for instance address field
+				instanceField.RegisterValueChangedCallback(evt =>
 				{
-					itemProperty.stringValue = _uiConfigsAddress[selectedIndex];
-					serializedObject.ApplyModifiedProperties();
+					instanceAddressProperty.stringValue = evt.newValue ?? string.Empty;
+					SaveSetChanges();
+				});
+				
+				// Set initial value if property is empty
+				if (string.IsNullOrEmpty(typeNameProperty.stringValue) && selectedIndex < _uiConfigsAddress.Count)
+				{
+					var address = _uiConfigsAddress[selectedIndex];
+					if (_uiTypesByAddress.TryGetValue(address, out var type))
+					{
+						typeNameProperty.stringValue = type.AssemblyQualifiedName;
+						serializedObject.ApplyModifiedProperties();
+					}
 				}
+			}
+
+			// Setup delete button to remove this item from the set
+			var deleteButton = element.Q<Button>("delete-button");
+			if (deleteButton != null)
+			{
+				// Store the click handler in userData to unregister it later if needed
+				if (deleteButton.userData is EventCallback<ClickEvent> previousCallback)
+				{
+					deleteButton.UnregisterCallback(previousCallback);
+				}
+
+				EventCallback<ClickEvent> clickHandler = _ =>
+				{
+					uiEntriesProperty.DeleteArrayElementAtIndex(index);
+					SaveSetChanges();
+				};
+
+				deleteButton.userData = clickHandler;
+				deleteButton.RegisterCallback(clickHandler);
 			}
 		}
 
-		private void OnPresenterItemsAdded(IEnumerable<int> indices, SerializedProperty uiConfigsAddressProperty)
+		private void OnPresenterItemsAdded(IEnumerable<int> indices, SerializedProperty uiEntriesProperty)
 		{
-			if (_uiConfigsAddress == null || _uiConfigsAddress.Count == 0)
+			if (_uiConfigsAddress == null || _uiConfigsAddress.Count == 0 || _uiTypesByAddress == null)
 			{
 				return;
 			}
 
 			var defaultAddress = _uiConfigsAddress[0];
+			Type defaultType = _uiTypesByAddress.TryGetValue(defaultAddress, out var type) ? type : null;
 			
 			foreach (var index in indices)
 			{
-				if (index < uiConfigsAddressProperty.arraySize)
+				if (index < uiEntriesProperty.arraySize)
 				{
-					var itemProperty = uiConfigsAddressProperty.GetArrayElementAtIndex(index);
-					itemProperty.stringValue = defaultAddress;
+					var entryProperty = uiEntriesProperty.GetArrayElementAtIndex(index);
+					var typeNameProperty = entryProperty.FindPropertyRelative(nameof(UiSetEntry.UiTypeName));
+					var instanceAddressProperty = entryProperty.FindPropertyRelative(nameof(UiSetEntry.InstanceAddress));
+					
+					typeNameProperty.stringValue = defaultType?.AssemblyQualifiedName ?? string.Empty;
+					instanceAddressProperty.stringValue = string.Empty;
 				}
 			}
 		
@@ -437,6 +511,16 @@ namespace GameLoversEditor.UiService
 			_scriptableObject.Configs = configs;
 			_uiConfigsAddress = uiConfigsAddress;
 			_assetPathLookup = assetPathLookup;
+			
+			// Build Type lookup dictionary
+			_uiTypesByAddress = new Dictionary<string, Type>();
+			foreach (var config in configs)
+			{
+				if (!string.IsNullOrEmpty(config.AddressableAddress) && config.UiType != null)
+				{
+					_uiTypesByAddress[config.AddressableAddress] = config.UiType;
+				}
+			}
 
 			EditorUtility.SetDirty(_scriptableObject);
 			AssetDatabase.SaveAssets();
