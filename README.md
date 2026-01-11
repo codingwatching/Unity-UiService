@@ -32,8 +32,7 @@ Managing UI in Unity games often becomes a tangled mess of direct references, sc
 - **🔄 Async Loading** - Load UI assets asynchronously with UniTask support
 - **📦 UI Group Organization** - Organize UI elements by depth layers and in groups for batch operations
 - **💾 Memory Management** - Efficient loading/unloading of UI assets with Unity's Addressables system
-- **📊 Analytics & Performance Tracking** - Optional analytics system with dependency injection
-- **🛠️ Editor Tools** - Powerful editor windows for debugging and monitoring
+- **🛠️ Editor Tools** - Presenter Manager window for real-time debugging and monitoring
 - **📱 Responsive Design** - Built-in support for device safe areas (e.g. iPhone dynamic island)
 
 ---
@@ -122,9 +121,10 @@ Runtime/
 └── Views/                 # Helper components
 
 Editor/
-├── UiConfigsEditor.cs     # Enhanced inspector
-├── UiAnalyticsWindow.cs   # Performance monitoring
-└── UiServiceHierarchyWindow.cs  # Live debugging
+├── UiConfigsEditorBase.cs        # Base config inspector
+├── DefaultUiConfigsEditor.cs     # Out-of-the-box editor
+├── UiPresenterEditor.cs          # Quick open/close buttons
+└── UiPresenterManagerWindow.cs   # Live debugging and management
 ```
 
 ### Key Files
@@ -142,6 +142,7 @@ Editor/
 | **ResourcesUiAssetLoader** | Loads UI from Unity's Resources folder |
 | **PresenterFeatureBase** | Base class for composable presenter behaviors |
 | **UiInstanceId** | Enables multiple instances of the same presenter type |
+| **UiPresenterManagerWindow** | Editor window for real-time presenter debugging |
 
 ---
 
@@ -244,7 +245,10 @@ The package includes sample implementations in the `Samples~` folder.
 | **DelayedPresenter** | Time and animation delay features |
 | **UiToolkit** | UI Toolkit (UI Elements) integration |
 | **DelayedUiToolkit** | Multiple features combined |
-| **Analytics** | Performance tracking integration |
+| **UiSets** | Group multiple UIs for batch operations (e.g., game HUD) |
+| **MultiInstance** | Create multiple instances of the same presenter type |
+| **CustomFeatures** | Create custom presenter features (fade, scale, sound) |
+| **AssetLoadingStrategies** | Compare PrefabRegistry, Addressables, and Resources loading |
 
 ---
 

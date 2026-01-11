@@ -76,11 +76,10 @@ void Start()
 | 3 | [DelayedPresenter](#3-delayedpresenter) | Time & animation delays |
 | 4 | [UiToolkit](#4-uitoolkit) | UI Toolkit integration |
 | 5 | [DelayedUiToolkit](#5-delayeduitoolkit) | Multi-feature composition |
-| 6 | [Analytics](#6-analytics) | Performance tracking |
-| 7 | [UiSets](#7-uisets) | HUD management |
-| 8 | [MultiInstance](#8-multiinstance) | Popup stacking |
-| 9 | [CustomFeatures](#9-customfeatures) | Create your own features |
-| 10 | [AssetLoadingStrategies](#10-assetloadingstrategies) | Compare loading strategies |
+| 6 | [UiSets](#6-uisets) | HUD management |
+| 7 | [MultiInstance](#7-multiinstance) | Popup stacking |
+| 8 | [CustomFeatures](#8-customfeatures) | Create your own features |
+| 9 | [AssetLoadingStrategies](#9-assetloadingstrategies) | Compare loading strategies |
 
 ---
 
@@ -271,55 +270,7 @@ public class TimeDelayedUiToolkitPresenter : UiPresenter
 
 ---
 
-### 6. Analytics
-
-**Files:**
-- `AnalyticsCallbackExample.cs` - Analytics integration example
-
-**Demonstrates:**
-- Creating a `UiAnalytics` instance
-- Setting custom analytics callbacks
-- Subscribing to UI lifecycle events
-- Viewing performance metrics
-
-**Pattern:**
-```csharp
-// Create analytics instance
-var analytics = new UiAnalytics();
-
-// Set custom callback
-analytics.SetCallback(new CustomAnalyticsCallback());
-
-// Pass to UiService constructor
-IUiServiceInit uiService = new UiService(new AddressablesUiAssetLoader(), analytics);
-uiService.Init(_uiConfigs);
-
-// Subscribe to UnityEvents
-analytics.OnUiOpened.AddListener(data => Debug.Log($"Opened: {data.UiName}"));
-
-// Access metrics
-var metrics = analytics.GetMetrics(typeof(MyPresenter));
-Debug.Log($"Opens: {metrics.OpenCount}, Load time: {metrics.LoadDuration}s");
-
-// Log summary
-analytics.LogPerformanceSummary();
-```
-
-**Custom Callback:**
-```csharp
-public class CustomAnalyticsCallback : IUiAnalyticsCallback
-{
-    public void OnUiLoaded(UiEventData data) { }
-    public void OnUiOpened(UiEventData data) { }
-    public void OnUiClosed(UiEventData data) { }
-    public void OnUiUnloaded(UiEventData data) { }
-    public void OnPerformanceMetricsUpdated(UiPerformanceMetrics metrics) { }
-}
-```
-
----
-
-### 7. UiSets
+### 6. UiSets
 
 **Files:**
 - `UiSetsExample.cs` - Scene setup and UI set management
@@ -361,7 +312,7 @@ foreach (var kvp in _uiService.UiSets)
 
 ---
 
-### 8. MultiInstance
+### 7. MultiInstance
 
 **Files:**
 - `MultiInstanceExample.cs` - Scene setup and instance management
@@ -403,7 +354,7 @@ _uiService.UnloadUi(typeof(MyPopup), instanceAddress);
 
 ---
 
-### 9. CustomFeatures
+### 8. CustomFeatures
 
 **Files:**
 - `CustomFeaturesExample.cs` - Scene setup demonstrating custom features
@@ -565,7 +516,7 @@ public class MyPresenter : UiPresenter { }
 
 ---
 
-### 10. AssetLoadingStrategies
+### 9. AssetLoadingStrategies
 
 **Files:**
 - `ExamplePresenter.cs` - Simple presenter for demonstration

@@ -85,11 +85,14 @@ Runtime/
 └── Views/                 # Helper components
     ├── SafeAreaHelperView.cs
     ├── NonDrawingView.cs
-    └── AdjustScreenSizeFitterView.cs
+    ├── AdjustScreenSizeFitterView.cs
+    └── InteractableTextView.cs
 
 Editor/
-├── UiConfigsEditor.cs     # Enhanced inspector
-└── UiPresenterManagerWindow.cs  # Live debugging and management
+├── UiConfigsEditorBase.cs        # Base config inspector
+├── DefaultUiConfigsEditor.cs     # Out-of-the-box editor
+├── UiPresenterEditor.cs          # Quick open/close buttons
+└── UiPresenterManagerWindow.cs   # Live debugging and management
 ```
 
 ## Version History
