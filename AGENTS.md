@@ -77,7 +77,7 @@ For user-facing docs, treat `docs/README.md` (and linked pages) as the primary d
   - Demonstrates basic flows, data presenters, delay features, UI Toolkit integration.
 - **Tests**: `Tests/`
   - `Tests/EditMode/*` — unit tests (configs, sets, loaders, core service behavior)
-  - `Tests/PlayMode/*` — integration/performance/smoke tests
+  - `Tests/PlayMode/*` — integration/performance/smoke tests and unit tests that require PlayMode (e.g. `DontDestroyOnLoad`)
 
 ## 4. Important Behaviors / Gotchas
 - **Instance address normalization**
