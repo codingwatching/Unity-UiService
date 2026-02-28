@@ -101,33 +101,7 @@ openupm add com.gamelovers.uiservice
 | [Advanced Topics](docs/advanced.md) | Analytics, performance, helper views |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |
 
-## Package Structure
-
-```
-Runtime/
-├── Loaders/
-│   ├── IUiAssetLoader.cs          # Asset loading interface
-│   ├── AddressablesUiAssetLoader.cs # Addressables implementation
-│   ├── PrefabRegistryUiAssetLoader.cs # Direct prefab references
-│   └── ResourcesUiAssetLoader.cs # Resources.Load implementation
-├── IUiService.cs          # Public API interface
-├── UiService.cs           # Core implementation
-├── UiPresenter.cs         # Base presenter classes
-├── UiConfigs.cs           # Configuration ScriptableObject
-├── Features/              # Composable features
-│   ├── TimeDelayFeature.cs
-│   ├── AnimationDelayFeature.cs
-│   └── UiToolkitPresenterFeature.cs
-└── Views/                 # Helper components
-
-Editor/
-├── UiConfigsEditorBase.cs        # Base config inspector
-├── DefaultUiConfigsEditor.cs     # Out-of-the-box editor
-├── UiPresenterEditor.cs          # Quick open/close buttons
-└── UiPresenterManagerWindow.cs   # Live debugging and management
-```
-
-### Key Files
+## Key Components
 
 | Component | Responsibility |
 |-----------|----------------|
@@ -135,14 +109,12 @@ Editor/
 | **UiService** | Core implementation managing lifecycle, layers, and state |
 | **UiPresenter** | Base class for all UI views with lifecycle hooks |
 | **UiConfigs** | ScriptableObject storing UI configuration and sets |
-| **PrefabRegistryConfig** | Map address keys to UI Prefabs for direct reference |
 | **IUiAssetLoader** | Interface for custom asset loading strategies |
 | **AddressablesUiAssetLoader** | Handles Addressables integration for async loading |
 | **PrefabRegistryUiAssetLoader** | Simple loader for direct prefab references |
 | **ResourcesUiAssetLoader** | Loads UI from Unity's Resources folder |
 | **PresenterFeatureBase** | Base class for composable presenter behaviors |
 | **UiInstanceId** | Enables multiple instances of the same presenter type |
-| **UiPresenterManagerWindow** | Editor window for real-time presenter debugging |
 
 ---
 
