@@ -76,8 +76,9 @@ For user-facing docs, treat `docs/README.md` (and linked pages) as the primary d
 - **Samples**: `Samples~/`
   - Demonstrates basic flows, data presenters, delay features, UI Toolkit integration.
 - **Tests**: `Tests/`
-  - `Tests/EditMode/*` — unit tests (configs, sets, loaders, core service behavior)
-  - `Tests/PlayMode/*` — integration/performance/smoke tests and unit tests that require PlayMode (e.g. `DontDestroyOnLoad`)
+  - `Tests/EditMode/*` — unit tests (configs, sets, loaders, core service behavior). Owned by `GameLovers.UiService.Tests.asmdef` which is **editor-only** (`includePlatforms: ["Editor"]`).
+  - `Tests/PlayMode/*` — integration/performance/smoke tests and unit tests that require PlayMode (e.g. `DontDestroyOnLoad`). Owned by `GameLovers.UiService.Tests.PlayMode.asmdef` (runtime-compatible).
+  - `Tests/Helpers/*` — **shared test fixtures** consumed by both EditMode and PlayMode. Owned by `GameLovers.UiService.Tests.Helpers.asmdef` (runtime-compatible, gated by `defineConstraints: ["UNITY_INCLUDE_TESTS"]`). **MonoBehaviour-derived test presenters (e.g., `TestUiPresenter`, `TestDataUiPresenter`) MUST live here**, not under `Tests/EditMode/`. Placing a MonoBehaviour in the editor-only EditMode asmdef makes Unity reject `AddComponent<T>()` calls (silent `null` return + warning: `Can't add script behaviour '<name>' because it is an editor script`), which causes tests that create prefabs via `TestHelpers.CreateTestPresenterPrefab<T>` to run without ever attaching the presenter component.
 
 ## 4. Important Behaviors / Gotchas
 - **Instance address normalization**
