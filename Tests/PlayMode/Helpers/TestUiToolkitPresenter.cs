@@ -26,10 +26,15 @@ namespace GameLovers.UiService.Tests.PlayMode
 			document = gameObject.AddComponent<UIDocument>();
 		}
 
-		// Create PanelSettings for test environment (required for panel attachment)
+		// Create PanelSettings for test environment (required for panel attachment).
+		// Assign an empty ThemeStyleSheet *before* setting panelSettings on the document
+		// to suppress Unity's "No Theme Style Sheet set to PanelSettings" warning, which
+		// would otherwise be logged on assignment and again on SetActive(true).
 		if (document.panelSettings == null)
 		{
-			document.panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+			var panel = ScriptableObject.CreateInstance<PanelSettings>();
+			panel.themeStyleSheet = ScriptableObject.CreateInstance<ThemeStyleSheet>();
+			document.panelSettings = panel;
 		}
 
 		ToolkitFeature = GetComponent<UiToolkitPresenterFeature>();

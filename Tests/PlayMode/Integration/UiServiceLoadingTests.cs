@@ -1,8 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace GameLovers.UiService.Tests.PlayMode
@@ -71,6 +73,9 @@ namespace GameLovers.UiService.Tests.PlayMode
 			var task1 = _service.LoadUiAsync(typeof(TestUiPresenter));
 			yield return task1.ToCoroutine();
 			var firstPresenter = task1.GetAwaiter().GetResult();
+
+			// Expected: second load hits the "already loaded" warning by design
+			LogAssert.Expect(LogType.Warning, new Regex("was already loaded"));
 
 			// Act
 			var task2 = _service.LoadUiAsync(typeof(TestUiPresenter));
@@ -177,6 +182,9 @@ namespace GameLovers.UiService.Tests.PlayMode
 			Assert.That(_service.VisiblePresenters.Count, Is.EqualTo(1));
 			Assert.That(presenter.gameObject.activeSelf, Is.True);
 
+			// Expected: LoadUiAsync on an already-loaded presenter logs a warning by design
+			LogAssert.Expect(LogType.Warning, new Regex("was already loaded"));
+
 			// Act - Call LoadUiAsync with openAfter=false on already visible presenter
 			var loadTask = _service.LoadUiAsync(typeof(TestUiPresenter), openAfter: false);
 			yield return loadTask.ToCoroutine();
@@ -199,6 +207,9 @@ namespace GameLovers.UiService.Tests.PlayMode
 			yield return presenter.OpenTransitionTask.ToCoroutine();
 
 			Assert.That(_service.VisiblePresenters.Count, Is.EqualTo(1));
+
+			// Expected: LoadUiAsync on an already-loaded presenter logs a warning by design
+			LogAssert.Expect(LogType.Warning, new Regex("was already loaded"));
 
 			// Act - Call LoadUiAsync with openAfter=true on already visible presenter
 			var loadTask = _service.LoadUiAsync(typeof(TestUiPresenter), openAfter: true);
@@ -280,6 +291,9 @@ namespace GameLovers.UiService.Tests.PlayMode
 
 			Assert.That(_service.VisiblePresenters.Count, Is.EqualTo(0));
 			var openCountBefore = presenter.OpenCount;
+
+			// Expected: LoadUiAsync on an already-loaded (but closed) presenter logs a warning by design
+			LogAssert.Expect(LogType.Warning, new Regex("was already loaded"));
 
 			// Act - Call LoadUiAsync with openAfter=true on already-loaded closed presenter
 			var loadTask2 = _service.LoadUiAsync(typeof(TestUiPresenter), openAfter: true);
