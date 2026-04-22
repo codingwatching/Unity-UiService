@@ -226,32 +226,17 @@ The package includes sample implementations in the `Samples~` folder.
 
 ## Contributing
 
-We welcome contributions! Here's how you can help:
-
-### Reporting Issues
-
-- Use the [GitHub Issues](https://github.com/CoderGamester/com.gamelovers.uiservice/issues) page
-- Include Unity version, package version, and reproduction steps
-- Attach relevant code samples, error logs, or screenshots
-
-### Development Setup
-
-1. Fork the repository on GitHub
-2. Clone your fork: `git clone https://github.com/yourusername/com.gamelovers.uiservice.git`
-3. Create a feature branch: `git checkout -b feature/amazing-feature`
-4. Make your changes with tests
-5. Commit: `git commit -m 'Add amazing feature'`
-6. Push: `git push origin feature/amazing-feature`
-7. Create a Pull Request
-
-### Code Guidelines
-
-- Follow [C# Coding Conventions](https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions)
-- Add XML documentation to all public APIs
-- Include unit tests for new features
-- Update CHANGELOG.md for notable changes
+Contributions are welcome! Report bugs or request features via [GitHub Issues](https://github.com/CoderGamester/com.gamelovers.uiservice/issues). For development setup, architecture, assembly conventions, and coding standards, see [AGENTS.md](AGENTS.md).
 
 ---
+
+## Related docs
+
+| Document | Purpose |
+|---|---|
+| [docs/README.md](docs/README.md) | Full documentation (getting started, concepts, API, advanced) |
+| [AGENTS.md](AGENTS.md) | Contributor/agent guide (architecture, gotchas, workflows) |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
 
 ## Support
 

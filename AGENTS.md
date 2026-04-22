@@ -1,5 +1,7 @@
 # GameLovers.UiService - AI Agent Guide
 
+> **Companion files**: `CLAUDE.md` wraps this file for Claude Code — edit `AGENTS.md`, not `CLAUDE.md`. `docs/README.md` (and linked pages) is the user-facing documentation set.
+
 ## 1. Package Overview
 - **Package**: `com.gamelovers.uiservice`
 - **Unity**: 6000.0+
