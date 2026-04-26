@@ -32,8 +32,7 @@ Managing UI in Unity games often becomes a tangled mess of direct references, sc
 - **🔄 Async Loading** - Load UI assets asynchronously with UniTask support
 - **📦 UI Group Organization** - Organize UI elements by depth layers and in groups for batch operations
 - **💾 Memory Management** - Efficient loading/unloading of UI assets with Unity's Addressables system
-- **📊 Analytics & Performance Tracking** - Optional analytics system with dependency injection
-- **🛠️ Editor Tools** - Powerful editor windows for debugging and monitoring
+- **🛠️ Editor Tools** - Presenter Manager window for real-time debugging and monitoring
 - **📱 Responsive Design** - Built-in support for device safe areas (e.g. iPhone dynamic island)
 
 ---
@@ -102,32 +101,7 @@ openupm add com.gamelovers.uiservice
 | [Advanced Topics](docs/advanced.md) | Analytics, performance, helper views |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |
 
-## Package Structure
-
-```
-Runtime/
-├── Loaders/
-│   ├── IUiAssetLoader.cs          # Asset loading interface
-│   ├── AddressablesUiAssetLoader.cs # Addressables implementation
-│   ├── PrefabRegistryUiAssetLoader.cs # Direct prefab references
-│   └── ResourcesUiAssetLoader.cs # Resources.Load implementation
-├── IUiService.cs          # Public API interface
-├── UiService.cs           # Core implementation
-├── UiPresenter.cs         # Base presenter classes
-├── UiConfigs.cs           # Configuration ScriptableObject
-├── Features/              # Composable features
-│   ├── TimeDelayFeature.cs
-│   ├── AnimationDelayFeature.cs
-│   └── UiToolkitPresenterFeature.cs
-└── Views/                 # Helper components
-
-Editor/
-├── UiConfigsEditor.cs     # Enhanced inspector
-├── UiAnalyticsWindow.cs   # Performance monitoring
-└── UiServiceHierarchyWindow.cs  # Live debugging
-```
-
-### Key Files
+## Key Components
 
 | Component | Responsibility |
 |-----------|----------------|
@@ -135,7 +109,6 @@ Editor/
 | **UiService** | Core implementation managing lifecycle, layers, and state |
 | **UiPresenter** | Base class for all UI views with lifecycle hooks |
 | **UiConfigs** | ScriptableObject storing UI configuration and sets |
-| **PrefabRegistryConfig** | Map address keys to UI Prefabs for direct reference |
 | **IUiAssetLoader** | Interface for custom asset loading strategies |
 | **AddressablesUiAssetLoader** | Handles Addressables integration for async loading |
 | **PrefabRegistryUiAssetLoader** | Simple loader for direct prefab references |
@@ -231,7 +204,7 @@ The package includes sample implementations in the `Samples~` folder.
 ### Importing Samples
 
 1. Open Unity Package Manager (`Window` → `Package Manager`)
-2. Select "UI Service" package
+2. Select "GameLovers UiService" package
 3. Navigate to the "Samples" tab
 4. Click "Import" next to the sample you want
 
@@ -244,38 +217,26 @@ The package includes sample implementations in the `Samples~` folder.
 | **DelayedPresenter** | Time and animation delay features |
 | **UiToolkit** | UI Toolkit (UI Elements) integration |
 | **DelayedUiToolkit** | Multiple features combined |
-| **Analytics** | Performance tracking integration |
+| **UiSets** | Group multiple UIs for batch operations (e.g., game HUD) |
+| **MultiInstance** | Create multiple instances of the same presenter type |
+| **CustomFeatures** | Create custom presenter features (fade, scale, sound) |
+| **AssetLoadingStrategies** | Compare PrefabRegistry, Addressables, and Resources loading |
 
 ---
 
 ## Contributing
 
-We welcome contributions! Here's how you can help:
-
-### Reporting Issues
-
-- Use the [GitHub Issues](https://github.com/CoderGamester/com.gamelovers.uiservice/issues) page
-- Include Unity version, package version, and reproduction steps
-- Attach relevant code samples, error logs, or screenshots
-
-### Development Setup
-
-1. Fork the repository on GitHub
-2. Clone your fork: `git clone https://github.com/yourusername/com.gamelovers.uiservice.git`
-3. Create a feature branch: `git checkout -b feature/amazing-feature`
-4. Make your changes with tests
-5. Commit: `git commit -m 'Add amazing feature'`
-6. Push: `git push origin feature/amazing-feature`
-7. Create a Pull Request
-
-### Code Guidelines
-
-- Follow [C# Coding Conventions](https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions)
-- Add XML documentation to all public APIs
-- Include unit tests for new features
-- Update CHANGELOG.md for notable changes
+Contributions are welcome! Report bugs or request features via [GitHub Issues](https://github.com/CoderGamester/com.gamelovers.uiservice/issues). For development setup, architecture, assembly conventions, and coding standards, see [AGENTS.md](AGENTS.md).
 
 ---
+
+## Related docs
+
+| Document | Purpose |
+|---|---|
+| [docs/README.md](docs/README.md) | Full documentation (getting started, concepts, API, advanced) |
+| [AGENTS.md](AGENTS.md) | Contributor/agent guide (architecture, gotchas, workflows) |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
 
 ## Support
 

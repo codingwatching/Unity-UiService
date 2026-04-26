@@ -1,5 +1,7 @@
 # GameLovers.UiService - AI Agent Guide
 
+> **Companion files**: `CLAUDE.md` wraps this file for Claude Code — edit `AGENTS.md`, not `CLAUDE.md`. `docs/README.md` (and linked pages) is the user-facing documentation set.
+
 ## 1. Package Overview
 - **Package**: `com.gamelovers.uiservice`
 - **Unity**: 6000.0+
@@ -76,8 +78,14 @@ For user-facing docs, treat `docs/README.md` (and linked pages) as the primary d
 - **Samples**: `Samples~/`
   - Demonstrates basic flows, data presenters, delay features, UI Toolkit integration.
 - **Tests**: `Tests/`
-  - `Tests/EditMode/*` — unit tests (configs, sets, loaders, core service behavior)
-  - `Tests/PlayMode/*` — integration/performance/smoke tests
+  - `Tests/EditMode/*` — unit tests (configs, sets, loaders, core service behavior). Owned by `GameLovers.UiService.Tests.asmdef` which is **editor-only** (`includePlatforms: ["Editor"]`).
+  - `Tests/PlayMode/*` — integration/performance/smoke tests and unit tests that require PlayMode (e.g. `DontDestroyOnLoad`). Owned by `GameLovers.UiService.Tests.PlayMode.asmdef` (runtime-compatible).
+  - `Tests/Helpers/*` — **shared test fixtures** consumed by both EditMode and PlayMode. Owned by `GameLovers.UiService.Tests.Helpers.asmdef` (runtime-compatible, gated by `defineConstraints: ["UNITY_INCLUDE_TESTS"]`). **MonoBehaviour-derived test presenters (e.g., `TestUiPresenter`, `TestDataUiPresenter`) MUST live here**, not under `Tests/EditMode/`. Placing a MonoBehaviour in the editor-only EditMode asmdef makes Unity reject `AddComponent<T>()` calls (silent `null` return + warning: `Can't add script behaviour '<name>' because it is an editor script`), which causes tests that create prefabs via `TestHelpers.CreateTestPresenterPrefab<T>` to run without ever attaching the presenter component.
+  - **Performance test pattern (`Measure.Method`)**: the body runs `WarmupCount + MeasurementCount` times. Stateful operations against `UiService` (Load/Unload/Open/Close) MUST use `.SetUp()` and/or `.CleanUp()` to reset per-iteration state — otherwise iterations 2+ hit the cache and log `The Ui <X> was already loaded` / `<X> is already open`, and the benchmark measures a no-op cache hit instead of the real operation. Correct shapes:
+    - Measuring **Load**: `body = Load; CleanUp = Unload;`
+    - Measuring **Unload**: `SetUp = Load; body = Unload;`
+    - See `Tests/PlayMode/Performance/PerformanceTests.cs` (`Perf_LoadUi_SinglePresenter`, `Perf_UnloadUi_SinglePresenter`) for the pattern.
+  - **`LogAssert.Expect` scope — asserts, does not silence**: `UnityEngine.TestTools.LogAssert.Expect(LogType.Warning, regex)` ensures a matching warning appears during the test (test fails if it doesn't) and prevents the warning from failing the test run for being "unexpected". It does **NOT** suppress the warning from `Editor.log` or the Unity Console — the log line is still emitted. Use it to **pin expected-warning contracts** (service behavior under test), not to reduce console noise. For the latter, restructure the test (see Performance test pattern above) or change the runtime log site — not `LogAssert`.
 
 ## 4. Important Behaviors / Gotchas
 - **Instance address normalization**
@@ -107,6 +115,15 @@ For user-facing docs, treat `docs/README.md` (and linked pages) as the primary d
 - **UI Toolkit visual tree timing and element recreation**
   - `UIDocument.rootVisualElement` may not be ready when `OnInitialized()` is called on a presenter.
   - UI Toolkit **recreates visual elements** when the presenter GameObject is deactivated/reactivated (close/reopen cycle), `AddVisualTreeAttachedListener(callback)` invokes  on **each open** to handle element recreation.
+- **UI Toolkit test `PanelSettings` creation — silence the theme warning**
+  - A runtime-created `PanelSettings` (no theme asset configured) makes Unity log `No Theme Style Sheet set to PanelSettings , UI will not render properly` **twice** per instantiation: once when assigned to `UIDocument.panelSettings`, and again when the hosting GameObject first goes `SetActive(true)`.
+  - Fix in test helpers: assign the theme **before** handing the panel to the document.
+    ```csharp
+    var panel = ScriptableObject.CreateInstance<PanelSettings>();
+    panel.themeStyleSheet = ScriptableObject.CreateInstance<ThemeStyleSheet>(); // empty theme is enough
+    document.panelSettings = panel;
+    ```
+  - See `Tests/PlayMode/Helpers/TestUiToolkitPresenter.cs` and `TestMultiFeatureToolkitPresenter.cs` for the pattern.
 
 ## 5. Coding Standards (Unity 6 / C# 9.0)
 - **C#**: C# 9.0 syntax; no global `using`s; keep **explicit namespaces**.
@@ -128,7 +145,7 @@ When you need third-party source/docs, prefer the locally-cached UPM packages:
   - Create a prefab with a component deriving `UiPresenter` (or `UiPresenter<T>`).
   - Ensure it has a `Canvas` or `UIDocument` if you want layer sorting to apply.
   - Mark the prefab Addressable and set its address.
-  - Add/update the entry in `UiConfigs` (menu: `Tools/UI Service/Select UiConfigs`).
+  - Add/update the entry in `UiConfigs` (menu: `Tools/GameLovers/UI Configs/Select UI Configs`).
 - **Add / update UI sets**
   - The default `UiConfigs` inspector uses `DefaultUiSetId` (out-of-the-box).
   - To customize set ids, create your own enum and your own `[CustomEditor(typeof(UiConfigs))] : UiConfigsEditor<TEnum>`.

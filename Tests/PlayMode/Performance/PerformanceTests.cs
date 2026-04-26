@@ -50,10 +50,15 @@ namespace GameLovers.UiService.Tests.PlayMode
 		[UnityTest, Performance]
 		public IEnumerator Perf_LoadUi_SinglePresenter()
 		{
+			// Unload after each iteration so every measurement benchmarks an actual
+			// Load (not a cache hit that would also log an "already loaded" warning).
 			Measure.Method(() =>
 			{
-				var task = _service.LoadUiAsync(typeof(TestUiPresenter));
-				task.GetAwaiter().GetResult();
+				_service.LoadUiAsync(typeof(TestUiPresenter)).GetAwaiter().GetResult();
+			})
+			.CleanUp(() =>
+			{
+				_service.UnloadUi(typeof(TestUiPresenter));
 			})
 			.WarmupCount(1)
 			.MeasurementCount(10)
@@ -86,16 +91,12 @@ namespace GameLovers.UiService.Tests.PlayMode
 		[UnityTest, Performance]
 		public IEnumerator Perf_UnloadUi_SinglePresenter()
 		{
+			// SetUp loads fresh before each iteration; body measures only the unload.
+			// After the body runs, the presenter is unloaded so the next SetUp's load
+			// is always a real load (avoids "already loaded" warnings).
 			Measure.Method(() =>
 			{
-				// Measure only the unload part
-				using (Measure.Scope())
-				{
-					_service.UnloadUi(typeof(TestUiPresenter));
-				}
-				
-				// Re-load for next measurement
-				_service.LoadUiAsync(typeof(TestUiPresenter)).GetAwaiter().GetResult();
+				_service.UnloadUi(typeof(TestUiPresenter));
 			})
 			.SetUp(() =>
 			{

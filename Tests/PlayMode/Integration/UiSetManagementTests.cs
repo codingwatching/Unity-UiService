@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace GameLovers.UiService.Tests.PlayMode
@@ -386,7 +388,12 @@ namespace GameLovers.UiService.Tests.PlayMode
 			// First open
 			var task1 = _service.OpenUiSetAsync(1);
 			yield return task1.ToCoroutine();
-			
+
+			// Expected: each already-open entry in the set logs an "already open" warning.
+			// The set contains two presenters, so expect one warning per entry.
+			LogAssert.Expect(LogType.Warning, new Regex("is already open"));
+			LogAssert.Expect(LogType.Warning, new Regex("is already open"));
+
 			// Second open (should not duplicate)
 			var task2 = _service.OpenUiSetAsync(1);
 			yield return task2.ToCoroutine();

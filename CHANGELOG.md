@@ -4,6 +4,24 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
+## [1.2.1] - 2026-04-26
+
+**New**:
+- Added `CLAUDE.md` wrapper at the package root that imports `AGENTS.md` for Claude Code integration
+- Added per-sample `README.md` documentation for every entry under `Samples~/` (BasicUiFlow, DataPresenter, DelayedPresenter, UiToolkit, DelayedUiToolkit, UiSets, MultiInstance, CustomFeatures, AssetLoadingStrategies)
+
+**Changed**:
+- Renamed package `displayName` from `UiService` to `GameLovers UiService` to align with the GameLovers GameData and GameLovers Services packages (UPM `name` `com.gamelovers.uiservice` and the GitHub repository name are unchanged)
+- Reorganized editor menu items under `Tools/GameLovers/...` to align with the GameLovers Services package layout: `Tools/UI Service/Presenter Manager` → `Tools/GameLovers/UI Presenter Manager`; `Tools/UI Service/Select UiConfigs` → `Tools/GameLovers/UI Configs/Select UI Configs`; `Tools/UI Service/Layer Visualizer` → `Tools/GameLovers/UI Configs/Layer Visualizer`
+- Moved runtime `[CreateAssetMenu]` paths from `ScriptableObjects/Configs/UiConfigs/...` to `GameLovers UiService/UiConfigs/...` for `AddressablesUiConfigs`, `ResourcesUiConfigs`, and `PrefabRegistryUiConfigs`; moved the `UiSets` sample's `[CreateAssetMenu]` to `GameLovers UiService Samples/UiSets Sample Configs`
+- Reorganized `Tests/PlayMode/` so unit tests live under `Tests/PlayMode/Unit/` alongside the existing `Integration/`, `Performance/`, `Smoke/` subfolders
+- Moved `TestPresenter` and other MonoBehaviour-based test fixtures from `Tests/EditMode/Helpers/` to `Tests/Helpers/` (runtime-compatible) so PlayMode tests can `AddComponent<T>()` them without hitting the editor-script restriction
+- Improved the  `README.md` and `AGENTS.md`documentation
+
+**Fixed**:
+- Fixed the information in the *README.md* files to be up to date with the API and project library structure
+- Fixed PlayMode test noise by declaring expected warnings via `LogAssert.Expect` (loading/open-close/UI-set tests) and assigning an empty `ThemeStyleSheet` to runtime-created `PanelSettings` in UI Toolkit test helpers to silence the `No Theme Style Sheet set to PanelSettings` warning
+
 ## [1.2.0] - 2026-01-07
 
 **New**:

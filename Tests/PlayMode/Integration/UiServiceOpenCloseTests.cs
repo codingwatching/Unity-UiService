@@ -1,6 +1,8 @@
 using System.Collections;
+using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace GameLovers.UiService.Tests.PlayMode
@@ -186,7 +188,10 @@ namespace GameLovers.UiService.Tests.PlayMode
 			var task1 = _service.OpenUiAsync(typeof(TestUiPresenter));
 			yield return task1.ToCoroutine();
 			var p1 = task1.GetAwaiter().GetResult();
-			
+
+			// Expected: second open hits the "already open" warning by design
+			LogAssert.Expect(LogType.Warning, new Regex("is already open"));
+
 			var task2 = _service.OpenUiAsync(typeof(TestUiPresenter));
 			yield return task2.ToCoroutine();
 			var p2 = task2.GetAwaiter().GetResult();
@@ -199,6 +204,9 @@ namespace GameLovers.UiService.Tests.PlayMode
 		[UnityTest]
 		public IEnumerator CloseUi_NotVisible_DoesNothing()
 		{
+			// Expected: closing a not-open presenter logs a warning by design
+			LogAssert.Expect(LogType.Warning, new Regex("but is not open"));
+
 			// Act
 			_service.CloseUi(typeof(TestUiPresenter));
 

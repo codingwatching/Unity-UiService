@@ -11,7 +11,7 @@ namespace GameLoversEditor.UiService
 	/// </summary>
 	public static class UiConfigsMenuItems
 	{
-		[MenuItem("Tools/UI Service/Select UiConfigs")]
+		[MenuItem("Tools/GameLovers/UI Configs/Select UI Configs", priority = 100)]
 		private static void SelectUiConfigs()
 		{
 			// Find any UiConfigs asset (including derived types like AddressablesUiConfigs, ResourcesUiConfigs, etc.)
@@ -32,7 +32,7 @@ namespace GameLoversEditor.UiService
 			FocusInspectorWindow();
 		}
 
-		[MenuItem("Tools/UI Service/Layer Visualizer")]
+		[MenuItem("Tools/GameLovers/UI Configs/Layer Visualizer", priority = 200)]
 		public static void ShowLayerVisualizer()
 		{
 			// Set the pref BEFORE selecting so OnEnable reads the correct value
