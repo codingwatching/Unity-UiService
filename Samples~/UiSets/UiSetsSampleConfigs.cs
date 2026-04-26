@@ -12,7 +12,7 @@ namespace GameLovers.UiService.Examples
 	/// 1. Create a similar subclass for your own enum (recommended for clarity)
 	/// 2. Or create a CustomEditor for the base PrefabRegistryUiConfigs with your enum
 	/// </summary>
-	[CreateAssetMenu(fileName = "UiSetsSampleConfigs", menuName = "GameLovers/UiService/Samples/UiSets Sample Configs")]
+	[CreateAssetMenu(fileName = "UiSetsSampleConfigs", menuName = "GameLovers UiService Samples/UiSets Sample Configs")]
 	public class UiSetsSampleConfigs : PrefabRegistryUiConfigs
 	{
 		// No additional implementation needed - this class exists solely for the custom editor targeting

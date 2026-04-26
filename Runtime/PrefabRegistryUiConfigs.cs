@@ -10,7 +10,7 @@ namespace GameLovers.UiService
 	/// UiConfigs implementation for PrefabRegistry-based asset loading.
 	/// Use this when loading UI presenters via direct prefab references.
 	/// </summary>
-	[CreateAssetMenu(fileName = "PrefabRegistryUiConfigs", menuName = "ScriptableObjects/Configs/UiConfigs/PrefabRegistry")]
+	[CreateAssetMenu(fileName = "PrefabRegistryUiConfigs", menuName = "GameLovers UiService/UiConfigs/PrefabRegistry")]
 	public class PrefabRegistryUiConfigs : UiConfigs
 	{
 		/// <summary>

@@ -145,7 +145,7 @@ When you need third-party source/docs, prefer the locally-cached UPM packages:
   - Create a prefab with a component deriving `UiPresenter` (or `UiPresenter<T>`).
   - Ensure it has a `Canvas` or `UIDocument` if you want layer sorting to apply.
   - Mark the prefab Addressable and set its address.
-  - Add/update the entry in `UiConfigs` (menu: `Tools/UI Service/Select UiConfigs`).
+  - Add/update the entry in `UiConfigs` (menu: `Tools/GameLovers/UI Configs/Select UI Configs`).
 - **Add / update UI sets**
   - The default `UiConfigs` inspector uses `DefaultUiSetId` (out-of-the-box).
   - To customize set ids, create your own enum and your own `[CustomEditor(typeof(UiConfigs))] : UiConfigsEditor<TEnum>`.

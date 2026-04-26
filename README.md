@@ -204,7 +204,7 @@ The package includes sample implementations in the `Samples~` folder.
 ### Importing Samples
 
 1. Open Unity Package Manager (`Window` → `Package Manager`)
-2. Select "UI Service" package
+2. Select "GameLovers UiService" package
 3. Navigate to the "Samples" tab
 4. Click "Import" next to the sample you want
 

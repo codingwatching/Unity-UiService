@@ -44,17 +44,18 @@ namespace GameLoversEditor.UiService
 			ScriptableObjectInstance = target as UiConfigs;
 			if (ScriptableObjectInstance == null) return;
 
-			SyncConfigs();
-			
-			// Ensure sets array matches enum size
+			// Init properties and resize _sets BEFORE SyncConfigs() — its SaveAssets call
+			// synchronously triggers a reentrant CreateInspectorGUI() that needs both ready.
 			ScriptableObjectInstance.SetSetsSize(Enum.GetNames(typeof(TSet)).Length);
-			
 			serializedObject.Update();
-			
 			ConfigsProperty = serializedObject.FindProperty("_configs");
 			SetsProperty = serializedObject.FindProperty("_sets");
-			
 			ShowVisualizer = EditorPrefs.GetBool(VisualizerPrefsKey, false);
+
+			SyncConfigs();
+
+			// Refresh after SyncConfigs writes directly to ScriptableObjectInstance.Configs.
+			serializedObject.Update();
 		}
 
 		/// <inheritdoc />

@@ -36,7 +36,7 @@ namespace GameLoversEditor.UiService
 		private ScrollView _scrollView;
 		private Label _statsLabel;
 
-		[MenuItem("Tools/UI Service/Presenter Manager")]
+		[MenuItem("Tools/GameLovers/UI Presenter Manager")]
 		public static void ShowWindow()
 		{
 			var window = GetWindow<UiPresenterManagerWindow>("UI Presenter Manager");
