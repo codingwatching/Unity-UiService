@@ -19,7 +19,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Improved the  `README.md` and `AGENTS.md`documentation
 
 **Fixed**:
-- Fixed `Tools/GameLovers/UI Configs/Layer Visualizer` (and any selection of a `UiConfigs` asset that triggered `ActiveEditorTracker.ForceRebuild()`) throwing `ArgumentNullException` from `ListView.BindProperty(null)` in `UiConfigsEditorBase<TSet>.CreateConfigsListView()`. Root cause was reentrant `CreateInspectorGUI()` invocations during `OnEnable()`: `SyncConfigs()` ends with `AssetDatabase.SaveAssets()`, which synchronously fires `Selection.Internal_CallSelectionChanged` → `InspectorWindow.OnSelectionChanged` → a reentrant inspector rebuild before `ConfigsProperty`/`SetsProperty` had been assigned and before `SetSetsSize` had been applied. Reordered `OnEnable()` to initialize the `SerializedProperty` references and resize `_sets` before `SyncConfigs()`, then re-call `serializedObject.Update()` afterwards to refresh the cached state.
 - Fixed the information in the *README.md* files to be up to date with the API and project library structure
 - Fixed PlayMode test noise by declaring expected warnings via `LogAssert.Expect` (loading/open-close/UI-set tests) and assigning an empty `ThemeStyleSheet` to runtime-created `PanelSettings` in UI Toolkit test helpers to silence the `No Theme Style Sheet set to PanelSettings` warning
 
